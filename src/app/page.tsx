@@ -9,6 +9,7 @@ import FinanceDashboard from "@/components/modules/finance/FinanceDashboard";
 import LogisticsTimeline from "@/components/modules/timeline/LogisticsTimeline";
 import QRScanner from "@/components/modules/scanner/QRScanner";
 import SettingsManager from "@/components/modules/settings/SettingsManager";
+import CalendarDashboard from "@/components/modules/calendar/CalendarDashboard";
 
 import { 
   LayoutDashboard, 
@@ -18,13 +19,14 @@ import {
   Clock, 
   QrCode, 
   Sliders,
+  CalendarDays,
   LogOut, 
   User, 
   Sparkles,
   ChevronRight
 } from "lucide-react";
 
-type TabType = "overview" | "tables" | "quotes" | "finance" | "timeline" | "scanner" | "settings";
+type TabType = "overview" | "tables" | "quotes" | "finance" | "timeline" | "scanner" | "settings" | "calendar";
 
 export default function Home() {
   const { user, loading, logout } = useAuth();
@@ -49,6 +51,7 @@ export default function Home() {
   const navigationItems = [
     { id: "overview", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "client", "staff"] },
     { id: "tables", label: "Plano de Mesas", icon: Map, roles: ["admin", "client", "staff"] },
+    { id: "calendar", label: "Calendario & Reservas", icon: CalendarDays, roles: ["admin", "client", "staff"] },
     { id: "quotes", label: "Cotizaciones", icon: FileSpreadsheet, roles: ["admin"] },
     { id: "finance", label: "Finanzas", icon: WalletCards, roles: ["admin", "client"] },
     { id: "timeline", label: "Cronograma", icon: Clock, roles: ["admin", "client"] },
@@ -76,6 +79,8 @@ export default function Home() {
         return <QRScanner />;
       case "settings":
         return <SettingsManager />;
+      case "calendar":
+        return <CalendarDashboard />;
       default:
         return <OverviewTab user={user} setActiveTab={setActiveTab} allowedTabs={allowedTabs} />;
     }
@@ -201,6 +206,7 @@ function OverviewTab({ user, setActiveTab, allowedTabs }: OverviewProps) {
                     {tab.id === "timeline" && "Logística del día minuto a minuto para coordinación."}
                     {tab.id === "scanner" && "Escanea códigos QR de aforo en la entrada principal."}
                     {tab.id === "settings" && "Gestiona al personal y los límites físicos del salón."}
+                    {tab.id === "calendar" && "Verifica disponibilidad del salón y agenda/confirma reservaciones de eventos."}
                   </p>
                 </div>
               </div>
