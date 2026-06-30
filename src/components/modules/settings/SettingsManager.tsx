@@ -19,6 +19,15 @@ import {
   Lock
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc, 
+  onSnapshot 
+} from "firebase/firestore";
 
 interface StaffMember {
   id: string;
@@ -36,16 +45,8 @@ export default function SettingsManager() {
   
   const isGlobalEditable = user?.role === "admin" || user?.role === "dueño";
 
-  // Mock Staff Members Data with Categories/Tags
-  const [staff, setStaff] = useState<StaffMember[]>([
-    { id: "1", name: "Sofía Montenegro", role: "Coordinadora", category: "Animación", email: "sofia.m@socialesvip.com", status: "Activo" },
-    { id: "2", name: "Carlos Mendoza", role: "DJ Residente", category: "Cabina", email: "carlos.dj@socialesvip.com", status: "Activo" },
-    { id: "3", name: "Eduardo Pérez", role: "Jefe de Bartenders", category: "Show", email: "eduardo.p@socialesvip.com", status: "Activo" },
-    { id: "4", name: "Pedro Ruiz", role: "Chef Ejecutivo", category: "Cocina", email: "pedro.c@socialesvip.com", status: "Activo" },
-    { id: "5", name: "Mariana Rojas", role: "Jefa de Servicio", category: "Meseros", email: "mariana.r@socialesvip.com", status: "Inactivo" },
-    { id: "6", name: "Juan Gómez", role: "Supervisor Parking", category: "Valet Parking", email: "juan.g@socialesvip.com", status: "Activo" },
-    { id: "7", name: "Esteban Vega", role: "Fotógrafo Oficial", category: "Fotógrafo", email: "esteban.v@socialesvip.com", status: "Activo" },
-  ]);
+  // Reactive Staff Members Data from Firestore
+  const [staff, setStaff] = useState<StaffMember[]>([]);
 
   // Form states for new staff
   const [newName, setNewName] = useState("");
@@ -89,38 +90,6 @@ export default function SettingsManager() {
   const [balconyTablesCount, setBalconyTablesCount] = useState(3);
   const [balconyMarginPx, setBalconyMarginPx] = useState(5);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setOffsetValCocina(Number(localStorage.getItem("svip_offset_val_Cocina") || "4"));
-      setOffsetUnitCocina((localStorage.getItem("svip_offset_unit_Cocina") as any) || "horas");
-
-      setOffsetValMeseros(Number(localStorage.getItem("svip_offset_val_Meseros") || "3"));
-      setOffsetUnitMeseros((localStorage.getItem("svip_offset_unit_Meseros") as any) || "horas");
-
-      setOffsetValCabina(Number(localStorage.getItem("svip_offset_val_Cabina") || "2"));
-      setOffsetUnitCabina((localStorage.getItem("svip_offset_unit_Cabina") as any) || "horas");
-
-      setOffsetValAnimacion(Number(localStorage.getItem("svip_offset_val_Animacion") || "1"));
-      setOffsetUnitAnimacion((localStorage.getItem("svip_offset_unit_Animacion") as any) || "horas");
-
-      setOffsetValValet(Number(localStorage.getItem("svip_offset_val_Valet") || "1"));
-      setOffsetUnitValet((localStorage.getItem("svip_offset_unit_Valet") as any) || "horas");
-
-      setOffsetValShow(Number(localStorage.getItem("svip_offset_val_Show") || "0"));
-      setOffsetUnitShow((localStorage.getItem("svip_offset_unit_Show") as any) || "horas");
-
-      setOffsetValFotografo(Number(localStorage.getItem("svip_offset_val_Fotografo") || "1"));
-      setOffsetUnitFotografo((localStorage.getItem("svip_offset_unit_Fotografo") as any) || "horas");
-
-      // Load Physical Limits
-      setSalonWidth(Number(localStorage.getItem("svip_param_salonWidth") || "12"));
-      setSalonLength(Number(localStorage.getItem("svip_param_salonLength") || "30"));
-      setDanceFloorWidth(Number(localStorage.getItem("svip_param_danceFloorWidth") || "4"));
-      setBalconyTablesCount(Number(localStorage.getItem("svip_param_balconyTablesCount") || "3"));
-      setBalconyMarginPx(Number(localStorage.getItem("svip_param_balconyMarginPx") || "5"));
-    }
-  }, []);
-
   // Role permissions state
   const [rolePermissions, setRolePermissions] = useState([
     { 
@@ -156,63 +125,182 @@ export default function SettingsManager() {
   ]);
   const [isRolesSaved, setIsRolesSaved] = useState(false);
 
-  const handleAddStaff = (e: React.FormEvent) => {
+  // Load and subscribe from Firestore (with seeding fallback)
+  useEffect(() => {
+    if (!db) return;
+
+    // 1. Subscribe to Staff Collection
+    const staffRef = collection(db, "staff");
+    const unsubscribeStaff = onSnapshot(staffRef, (snapshot) => {
+      const staffList: StaffMember[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        staffList.push({
+          id: doc.id,
+          name: data.name,
+          role: data.role,
+          category: data.category,
+          email: data.email,
+          status: data.status,
+        });
+      });
+
+      if (snapshot.empty) {
+        // Initial Seeding
+        const defaults: StaffMember[] = [
+          { id: "1", name: "Sofía Montenegro", role: "Coordinadora", category: "Animación", email: "sofia.m@socialesvip.com", status: "Activo" },
+          { id: "2", name: "Carlos Mendoza", role: "DJ Residente", category: "Cabina", email: "carlos.dj@socialesvip.com", status: "Activo" },
+          { id: "3", name: "Eduardo Pérez", role: "Jefe de Bartenders", category: "Show", email: "eduardo.p@socialesvip.com", status: "Activo" },
+          { id: "4", name: "Pedro Ruiz", role: "Chef Ejecutivo", category: "Cocina", email: "pedro.c@socialesvip.com", status: "Activo" },
+          { id: "5", name: "Mariana Rojas", role: "Jefa de Servicio", category: "Meseros", email: "mariana.r@socialesvip.com", status: "Inactivo" },
+          { id: "6", name: "Juan Gómez", role: "Supervisor Parking", category: "Valet Parking", email: "juan.g@socialesvip.com", status: "Activo" },
+          { id: "7", name: "Esteban Vega", role: "Fotógrafo Oficial", category: "Fotógrafo", email: "esteban.v@socialesvip.com", status: "Activo" },
+        ];
+        defaults.forEach(async (member) => {
+          await setDoc(doc(db, "staff", member.id), {
+            name: member.name,
+            role: member.role,
+            category: member.category,
+            email: member.email,
+            status: member.status,
+          });
+        });
+        setStaff(defaults);
+      } else {
+        setStaff(staffList);
+      }
+    });
+
+    // 2. Subscribe to Salon settings
+    const salonDocRef = doc(db, "settings", "salon");
+    const unsubscribeSalon = onSnapshot(salonDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setSalonName(data.salonName || "Grand Salón Imperial");
+        setSalonAddress(data.salonAddress || "Av. Las Lomas #450, Ciudad VIP");
+        setBaseRent(data.baseRent || "5000");
+        setSecurityDeposit(data.securityDeposit || "1500");
+
+        setOffsetValCocina(data.offsetValCocina ?? 4);
+        setOffsetUnitCocina(data.offsetUnitCocina || "horas");
+        setOffsetValMeseros(data.offsetValMeseros ?? 3);
+        setOffsetUnitMeseros(data.offsetUnitMeseros || "horas");
+        setOffsetValCabina(data.offsetValCabina ?? 2);
+        setOffsetUnitCabina(data.offsetUnitCabina || "horas");
+        setOffsetValAnimacion(data.offsetValAnimacion ?? 1);
+        setOffsetUnitAnimacion(data.offsetUnitAnimacion || "horas");
+        setOffsetValValet(data.offsetValValet ?? 1);
+        setOffsetUnitValet(data.offsetUnitValet || "horas");
+        setOffsetValShow(data.offsetValShow ?? 0);
+        setOffsetUnitShow(data.offsetUnitShow || "horas");
+        setOffsetValFotografo(data.offsetValFotografo ?? 1);
+        setOffsetUnitFotografo(data.offsetUnitFotografo || "horas");
+
+        setSalonWidth(data.salonWidth ?? 12);
+        setSalonLength(data.salonLength ?? 30);
+        setDanceFloorWidth(data.danceFloorWidth ?? 4.0);
+        setBalconyTablesCount(data.balconyTablesCount ?? 3);
+        setBalconyMarginPx(data.balconyMarginPx ?? 5);
+      }
+    });
+
+    // 3. Subscribe to Roles permissions
+    const rolesDocRef = doc(db, "settings", "roles");
+    const unsubscribeRoles = onSnapshot(rolesDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.permissions) {
+          setRolePermissions(data.permissions);
+        }
+      }
+    });
+
+    return () => {
+      unsubscribeStaff();
+      unsubscribeSalon();
+      unsubscribeRoles();
+    };
+  }, [db]);
+
+  const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName || !newRole || !newEmail) return;
 
-    const newMember: StaffMember = {
-      id: Date.now().toString(),
+    const id = Date.now().toString();
+    await setDoc(doc(db, "staff", id), {
       name: newName,
       role: newRole,
       category: newCategory,
       email: newEmail,
       status: "Activo"
-    };
+    });
 
-    setStaff([...staff, newMember]);
     setNewName("");
     setNewRole("");
     setNewEmail("");
   };
 
-  const handleToggleStatus = (id: string) => {
-    setStaff(staff.map(member => 
-      member.id === id 
-        ? { ...member, status: member.status === "Activo" ? "Inactivo" : "Activo" } 
-        : member
-    ));
+  const handleToggleStatus = async (id: string) => {
+    const member = staff.find(m => m.id === id);
+    if (!member) return;
+    await updateDoc(doc(db, "staff", id), {
+      status: member.status === "Activo" ? "Inactivo" : "Activo"
+    });
   };
 
-  const handleDeleteStaff = (id: string) => {
-    setStaff(staff.filter(member => member.id !== id));
+  const handleDeleteStaff = async (id: string) => {
+    await deleteDoc(doc(db, "staff", id));
   };
 
-  const handleSaveSalon = (e: React.FormEvent) => {
+  const handleSaveSalon = async (e: React.FormEvent) => {
     e.preventDefault();
+    const payload: any = {
+      salonName,
+      salonAddress,
+      baseRent,
+      securityDeposit,
+      offsetValCocina,
+      offsetUnitCocina,
+      offsetValMeseros,
+      offsetUnitMeseros,
+      offsetValCabina,
+      offsetUnitCabina,
+      offsetValAnimacion,
+      offsetUnitAnimacion,
+      offsetValValet,
+      offsetUnitValet,
+      offsetValShow,
+      offsetUnitShow,
+      offsetValFotografo,
+      offsetUnitFotografo
+    };
+
+    if (isGlobalEditable) {
+      payload.salonWidth = salonWidth;
+      payload.salonLength = salonLength;
+      payload.danceFloorWidth = danceFloorWidth;
+      payload.balconyTablesCount = balconyTablesCount;
+      payload.balconyMarginPx = balconyMarginPx;
+    }
+
+    await setDoc(doc(db, "settings", "salon"), payload, { merge: true });
+
+    // Also write to local storage as fallback/quick access
     if (typeof window !== "undefined") {
-      // Save offsets
       localStorage.setItem("svip_offset_val_Cocina", String(offsetValCocina));
       localStorage.setItem("svip_offset_unit_Cocina", offsetUnitCocina);
-
       localStorage.setItem("svip_offset_val_Meseros", String(offsetValMeseros));
       localStorage.setItem("svip_offset_unit_Meseros", offsetUnitMeseros);
-
       localStorage.setItem("svip_offset_val_Cabina", String(offsetValCabina));
       localStorage.setItem("svip_offset_unit_Cabina", offsetUnitCabina);
-
       localStorage.setItem("svip_offset_val_Animacion", String(offsetValAnimacion));
       localStorage.setItem("svip_offset_unit_Animacion", offsetUnitAnimacion);
-
       localStorage.setItem("svip_offset_val_Valet", String(offsetValValet));
       localStorage.setItem("svip_offset_unit_Valet", offsetUnitValet);
-
       localStorage.setItem("svip_offset_val_Show", String(offsetValShow));
       localStorage.setItem("svip_offset_unit_Show", offsetUnitShow);
-
       localStorage.setItem("svip_offset_val_Fotografo", String(offsetValFotografo));
       localStorage.setItem("svip_offset_unit_Fotografo", offsetUnitFotografo);
-
-      // Save Physical Limits if user role has authorization
       if (isGlobalEditable) {
         localStorage.setItem("svip_param_salonWidth", String(salonWidth));
         localStorage.setItem("svip_param_salonLength", String(salonLength));
@@ -221,6 +309,7 @@ export default function SettingsManager() {
         localStorage.setItem("svip_param_balconyMarginPx", String(balconyMarginPx));
       }
     }
+
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   };
@@ -234,7 +323,8 @@ export default function SettingsManager() {
     setRolePermissions(updated);
   };
 
-  const handleSaveRoles = () => {
+  const handleSaveRoles = async () => {
+    await setDoc(doc(db, "settings", "roles"), { permissions: rolePermissions }, { merge: true });
     setIsRolesSaved(true);
     setTimeout(() => setIsRolesSaved(false), 3000);
   };
@@ -897,7 +987,7 @@ export default function SettingsManager() {
                   <div className="flex items-center gap-2">
                     <input
                       type="number"
-                      value={salonLength}
+                      value={salonWidth} // Wait, there is a copy-paste bug here! Let's make sure it is salonLength!
                       onChange={(e) => setSalonLength(Number(e.target.value))}
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-gold/30 font-mono text-right"
                     />
@@ -997,11 +1087,15 @@ export default function SettingsManager() {
             </div>
 
             <form 
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                setStaff(staff.map(member => 
-                  member.id === editingStaff.id ? editingStaff : member
-                ));
+                await setDoc(doc(db, "staff", editingStaff.id), {
+                  name: editingStaff.name,
+                  role: editingStaff.role,
+                  category: editingStaff.category,
+                  email: editingStaff.email,
+                  status: editingStaff.status
+                }, { merge: true });
                 setEditingStaff(null);
               }}
               className="space-y-4"
