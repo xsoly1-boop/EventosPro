@@ -31,7 +31,7 @@ interface StaffNotification {
   id: string;
   name: string;
   role: string;
-  category: "Cocina" | "Cabina" | "Animación" | "Valet Parking" | "Meseros" | "Show";
+  category: "Cocina" | "Cabina" | "Animación" | "Valet Parking" | "Meseros" | "Show" | "Fotógrafo";
   offsetHours: number; // offset value
   offsetUnit: "horas" | "minutos";
   phone: string;
@@ -121,6 +121,7 @@ export default function LogisticsTimeline() {
     { id: "s-4", name: "Juan Gómez", role: "Supervisor Parking", category: "Valet Parking", offsetHours: 1, offsetUnit: "horas", phone: "+52 55 4567 8901", status: "pendiente" },
     { id: "s-5", name: "Mariana Rojas", role: "Jefa de Servicio", category: "Meseros", offsetHours: 3, offsetUnit: "horas", phone: "+52 55 5678 9012", status: "pendiente" },
     { id: "s-6", name: "Eduardo Pérez", role: "Jefe de Bartenders", category: "Show", offsetHours: 0, offsetUnit: "horas", phone: "+52 55 6789 0123", status: "pendiente" },
+    { id: "s-7", name: "Esteban Vega", role: "Fotógrafo Oficial", category: "Fotógrafo", offsetHours: 1, offsetUnit: "horas", phone: "+52 55 7890 1234", status: "pendiente" },
   ]);
 
   // Function to calculate individual call times based on event time, offset and unit
@@ -163,6 +164,9 @@ export default function LogisticsTimeline() {
       const offValShow = Number(localStorage.getItem("svip_offset_val_Show") || "0");
       const offUnitShow = (localStorage.getItem("svip_offset_unit_Show") as any) || "horas";
 
+      const offValFoto = Number(localStorage.getItem("svip_offset_val_Fotografo") || "1");
+      const offUnitFoto = (localStorage.getItem("svip_offset_unit_Fotografo") as any) || "horas";
+
       setStaffCalls(prev => prev.map(call => {
         let val = call.offsetHours;
         let unit: "horas" | "minutos" = call.offsetUnit;
@@ -173,6 +177,7 @@ export default function LogisticsTimeline() {
         if (call.category === "Animación") { val = offValAnim; unit = offUnitAnim; }
         if (call.category === "Valet Parking") { val = offValValet; unit = offUnitValet; }
         if (call.category === "Show") { val = offValShow; unit = offUnitShow; }
+        if (call.category === "Fotógrafo") { val = offValFoto; unit = offUnitFoto; }
 
         return {
           ...call,
@@ -205,18 +210,18 @@ export default function LogisticsTimeline() {
 
     // Simulate sending sequence in background with timers
     setTimeout(() => {
-      // Cocina and Meseros are sent (long offsets)
+      // Cocina, Meseros and Fotógrafo are sent (long offsets)
       setStaffCalls(prev => prev.map(call => 
-        call.category === "Cocina" || call.category === "Meseros"
+        call.category === "Cocina" || call.category === "Meseros" || call.category === "Fotógrafo"
           ? { ...call, status: "enviado" }
           : call
       ));
     }, 1500);
 
     setTimeout(() => {
-      // Cocina and Meseros are delivered, Cabina is sent
+      // Cocina, Meseros and Fotógrafo are delivered, Cabina is sent
       setStaffCalls(prev => prev.map(call => {
-        if (call.category === "Cocina" || call.category === "Meseros") {
+        if (call.category === "Cocina" || call.category === "Meseros" || call.category === "Fotógrafo") {
           return { ...call, status: "entregado" };
         }
         if (call.category === "Cabina") {

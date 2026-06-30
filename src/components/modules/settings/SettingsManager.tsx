@@ -24,7 +24,7 @@ interface StaffMember {
   id: string;
   name: string;
   role: string;
-  category: "Cocina" | "Cabina" | "Animación" | "Valet Parking" | "Meseros" | "Show" | "Otro";
+  category: "Cocina" | "Cabina" | "Animación" | "Valet Parking" | "Meseros" | "Show" | "Fotógrafo" | "Otro";
   email: string;
   status: "Activo" | "Inactivo";
 }
@@ -44,12 +44,13 @@ export default function SettingsManager() {
     { id: "4", name: "Pedro Ruiz", role: "Chef Ejecutivo", category: "Cocina", email: "pedro.c@socialesvip.com", status: "Activo" },
     { id: "5", name: "Mariana Rojas", role: "Jefa de Servicio", category: "Meseros", email: "mariana.r@socialesvip.com", status: "Inactivo" },
     { id: "6", name: "Juan Gómez", role: "Supervisor Parking", category: "Valet Parking", email: "juan.g@socialesvip.com", status: "Activo" },
+    { id: "7", name: "Esteban Vega", role: "Fotógrafo Oficial", category: "Fotógrafo", email: "esteban.v@socialesvip.com", status: "Activo" },
   ]);
 
   // Form states for new staff
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState("");
-  const [newCategory, setNewCategory] = useState<"Cocina" | "Cabina" | "Animación" | "Valet Parking" | "Meseros" | "Show" | "Otro">("Cocina");
+  const [newCategory, setNewCategory] = useState<"Cocina" | "Cabina" | "Animación" | "Valet Parking" | "Meseros" | "Show" | "Fotógrafo" | "Otro">("Cocina");
   const [newEmail, setNewEmail] = useState("");
 
   // Salon configurations state
@@ -78,6 +79,9 @@ export default function SettingsManager() {
   const [offsetValShow, setOffsetValShow] = useState(0);
   const [offsetUnitShow, setOffsetUnitShow] = useState<"horas" | "minutos">("horas");
 
+  const [offsetValFotografo, setOffsetValFotografo] = useState(1);
+  const [offsetUnitFotografo, setOffsetUnitFotografo] = useState<"horas" | "minutos">("horas");
+
   // Editable Physical Salon Limits (Only by dueño / admin)
   const [salonWidth, setSalonWidth] = useState(12);
   const [salonLength, setSalonLength] = useState(30);
@@ -104,6 +108,9 @@ export default function SettingsManager() {
 
       setOffsetValShow(Number(localStorage.getItem("svip_offset_val_Show") || "0"));
       setOffsetUnitShow((localStorage.getItem("svip_offset_unit_Show") as any) || "horas");
+
+      setOffsetValFotografo(Number(localStorage.getItem("svip_offset_val_Fotografo") || "1"));
+      setOffsetUnitFotografo((localStorage.getItem("svip_offset_unit_Fotografo") as any) || "horas");
 
       // Load Physical Limits
       setSalonWidth(Number(localStorage.getItem("svip_param_salonWidth") || "12"));
@@ -201,6 +208,9 @@ export default function SettingsManager() {
 
       localStorage.setItem("svip_offset_val_Show", String(offsetValShow));
       localStorage.setItem("svip_offset_unit_Show", offsetUnitShow);
+
+      localStorage.setItem("svip_offset_val_Fotografo", String(offsetValFotografo));
+      localStorage.setItem("svip_offset_unit_Fotografo", offsetUnitFotografo);
 
       // Save Physical Limits if user role has authorization
       if (isGlobalEditable) {
@@ -325,6 +335,7 @@ export default function SettingsManager() {
                     <option value="Valet Parking">Valet Parking</option>
                     <option value="Meseros">Meseros</option>
                     <option value="Show">Show</option>
+                    <option value="Fotógrafo">Fotógrafo</option>
                     <option value="Otro">Otro</option>
                   </select>
                 </div>
@@ -783,6 +794,32 @@ export default function SettingsManager() {
                       </select>
                     </div>
                   </div>
+
+                  {/* Fotografo */}
+                  <div>
+                    <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                      Fotógrafo (Desfase)
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        required
+                        min={0}
+                        max={60}
+                        value={offsetValFotografo}
+                        onChange={(e) => setOffsetValFotografo(Number(e.target.value))}
+                        className="w-20 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
+                      />
+                      <select
+                        value={offsetUnitFotografo}
+                        onChange={(e) => setOffsetUnitFotografo(e.target.value as any)}
+                        className="flex-grow bg-white/5 border border-white/10 rounded-xl px-2 py-2 text-xs text-white focus:outline-none focus:border-gold/30"
+                      >
+                        <option value="horas">Horas antes</option>
+                        <option value="minutos">Minutos antes</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -998,6 +1035,7 @@ export default function SettingsManager() {
                     <option value="Valet Parking">Valet Parking</option>
                     <option value="Meseros">Meseros</option>
                     <option value="Show">Show</option>
+                    <option value="Fotógrafo">Fotógrafo</option>
                     <option value="Otro">Otro</option>
                   </select>
                 </div>
