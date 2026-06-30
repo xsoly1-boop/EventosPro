@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
-import { MoveLeft, UserPlus, Trash2, HelpCircle, Users, Check } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { MoveLeft, HelpCircle, Users } from "lucide-react";
+import { useEventTables } from "@/hooks/useEventTables";
 
 interface Guest {
   id: string;
@@ -21,23 +22,28 @@ interface TableMapProps {
 }
 
 export default function TableMap({ onBack }: TableMapProps) {
-  // Mock Guests List
-  const [unassignedGuests, setUnassignedGuests] = useState<Guest[]>([
-    { id: "g1", name: "Sr. y Sra. Arriaga", tickets: 2 },
-    { id: "g2", name: "Lic. Alejandro Torres", tickets: 1 },
-    { id: "g3", name: "Dra. Sofía Mendoza", tickets: 1 },
-    { id: "g4", name: "Ing. Roberto Garza", tickets: 1 },
-    { id: "g5", name: "Familia Villareal (5 pax)", tickets: 5 },
-    { id: "g6", name: "Srita. Elena Montes", tickets: 1 },
-    { id: "g7", name: "Dr. Carlos Fuentes", tickets: 2 },
-    { id: "g8", name: "Gabriela Leyva", tickets: 1 },
-    { id: "g9", name: "Familia Peralta (4 pax)", tickets: 4 },
-    { id: "g10", name: "Arq. Manuel Ortiz", tickets: 1 },
-  ]);
+  const { guests, loading, error, assignGuest, unassignGuest, seedMockData } = useEventTables("event-123");
 
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
-  const [assignments, setAssignments] = useState<Assignment>({});
   const [draggedGuestId, setDraggedGuestId] = useState<string | null>(null);
+
+  // Auto-seed mock data on initial load
+  useEffect(() => {
+    seedMockData();
+  }, []);
+
+  // Compute unassigned list and assignments dictionary reactively from Firestore guests state
+  const unassignedGuests = guests.filter((g) => g.tableId === null);
+  
+  const assignments: Assignment = {};
+  guests.forEach((g) => {
+    if (g.tableId !== null && g.seatIndex !== null) {
+      assignments[`${g.tableId}-${g.seatIndex}`] = {
+        guestId: g.id,
+        name: g.name,
+      };
+    }
+  });
 
   // Layout Parameters: Aspect Ratio 9:50
   // SVG Canvas dimensions: Width 900, Height 5000
@@ -93,50 +99,34 @@ export default function TableMap({ onBack }: TableMapProps) {
     setDraggedGuestId(guestId);
   };
 
-  // Handle Drop on Seat
-  const handleSeatDrop = (tableNumber: number, seatIndex: number) => {
+  // Handle Drop on Seat (saves to Firestore)
+  const handleSeatDrop = async (tableNumber: number, seatIndex: number) => {
     const guestId = draggedGuestId || selectedGuestId;
     if (!guestId) return;
 
-    const guest = unassignedGuests.find((g) => g.id === guestId);
-    if (!guest) return;
-
-    const seatKey = `${tableNumber}-${seatIndex}`;
-
-    // Assign seat
-    setAssignments((prev) => ({
-      ...prev,
-      [seatKey]: { guestId: guest.id, name: guest.name },
-    }));
-
-    // Remove from unassigned list
-    setUnassignedGuests((prev) => prev.filter((g) => g.id !== guestId));
-
-    // Reset selection states
-    setDraggedGuestId(null);
-    setSelectedGuestId(null);
+    try {
+      await assignGuest(guestId, tableNumber, seatIndex);
+    } catch (err) {
+      console.error("Failed to assign seat in Firestore:", err);
+    } finally {
+      setDraggedGuestId(null);
+      setSelectedGuestId(null);
+    }
   };
 
   // Handle click to assign (alternative/fallback for mobile)
-  const handleSeatClick = (tableNumber: number, seatIndex: number) => {
+  const handleSeatClick = async (tableNumber: number, seatIndex: number) => {
     const seatKey = `${tableNumber}-${seatIndex}`;
     const existingAssignment = assignments[seatKey];
 
     if (existingAssignment) {
-      // Remove assignment & restore to list
-      const restoredGuest: Guest = {
-        id: existingAssignment.guestId,
-        name: existingAssignment.name,
-        tickets: 1, // default mock value
-      };
-      setUnassignedGuests((prev) => [...prev, restoredGuest]);
-      setAssignments((prev) => {
-        const copy = { ...prev };
-        delete copy[seatKey];
-        return copy;
-      });
+      try {
+        await unassignGuest(tableNumber, seatIndex);
+      } catch (err) {
+        console.error("Failed to unassign seat in Firestore:", err);
+      }
     } else if (selectedGuestId) {
-      handleSeatDrop(tableNumber, seatIndex);
+      await handleSeatDrop(tableNumber, seatIndex);
     }
   };
 
@@ -205,32 +195,41 @@ export default function TableMap({ onBack }: TableMapProps) {
             </div>
 
             <div className="space-y-2.5 max-h-[40vh] md:max-h-[50vh] overflow-y-auto pr-1">
-              {unassignedGuests.map((guest) => {
-                const isSelected = selectedGuestId === guest.id;
-                return (
-                  <div
-                    key={guest.id}
-                    draggable
-                    onDragStart={() => handleDragStart(guest.id)}
-                    onClick={() => setSelectedGuestId(isSelected ? null : guest.id)}
-                    className={`p-3 rounded-lg border text-xs font-light transition-all duration-300 cursor-pointer select-none flex justify-between items-center ${
-                      isSelected
-                        ? "bg-gold/20 border-gold text-white shadow-[0_0_10px_rgba(212,175,55,0.1)]"
-                        : "bg-white/5 border-white/5 text-gray-300 hover:border-gold/30 hover:bg-white/10"
-                    }`}
-                  >
-                    <span>{guest.name}</span>
-                    <span className="text-[9px] bg-white/10 px-2 py-0.5 rounded text-gold border border-gold/20">
-                      {guest.tickets} Pases
-                    </span>
-                  </div>
-                );
-              })}
-
-              {unassignedGuests.length === 0 && (
-                <div className="text-center py-8 text-xs text-gray-500 font-light">
-                  Todos los invitados han sido asignados al plano.
+              {loading ? (
+                <div className="text-center py-10 text-xs text-gray-500 font-light flex flex-col items-center justify-center gap-3">
+                  <div className="w-5 h-5 border-2 border-gold border-t-transparent rounded-full animate-spin" />
+                  <span>Sincronizando Firestore...</span>
                 </div>
+              ) : (
+                <>
+                  {unassignedGuests.map((guest) => {
+                    const isSelected = selectedGuestId === guest.id;
+                    return (
+                      <div
+                        key={guest.id}
+                        draggable
+                        onDragStart={() => handleDragStart(guest.id)}
+                        onClick={() => setSelectedGuestId(isSelected ? null : guest.id)}
+                        className={`p-3 rounded-lg border text-xs font-light transition-all duration-300 cursor-pointer select-none flex justify-between items-center ${
+                          isSelected
+                            ? "bg-gold/20 border-gold text-white shadow-[0_0_10px_rgba(212,175,55,0.1)]"
+                            : "bg-white/5 border-white/5 text-gray-300 hover:border-gold/30 hover:bg-white/10"
+                        }`}
+                      >
+                        <span>{guest.name}</span>
+                        <span className="text-[9px] bg-white/10 px-2 py-0.5 rounded text-gold border border-gold/20">
+                          {guest.tickets} Pases
+                        </span>
+                      </div>
+                    );
+                  })}
+
+                  {unassignedGuests.length === 0 && (
+                    <div className="text-center py-8 text-xs text-gray-500 font-light">
+                      Todos los invitados han sido asignados al plano.
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
