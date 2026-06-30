@@ -45,9 +45,9 @@ export default function TableMap({ onBack }: TableMapProps) {
     }
   });
 
-  // Layout Parameters: Aspect Ratio 9:30
-  // SVG Canvas dimensions: Width 900, Height 3000
-  const canvasWidth = 900;
+  // Layout Parameters: Aspect Ratio 12:30
+  // SVG Canvas dimensions: Width 1200, Height 3000
+  const canvasWidth = 1200;
   const canvasHeight = 3000;
 
   // Dynamic tables state
@@ -55,9 +55,9 @@ export default function TableMap({ onBack }: TableMapProps) {
 
   // Fixed Balcony tables configuration
   const balconyTables = [
-    { id: "balcony-1", cx: 220, cy: 220, tableNumber: 101, displayNum: 1 },
-    { id: "balcony-2", cx: 450, cy: 220, tableNumber: 102, displayNum: 2 },
-    { id: "balcony-3", cx: 680, cy: 220, tableNumber: 103, displayNum: 3 },
+    { id: "balcony-1", cx: 300, cy: 220, tableNumber: 101, displayNum: 1 },
+    { id: "balcony-2", cx: 600, cy: 220, tableNumber: 102, displayNum: 2 },
+    { id: "balcony-3", cx: 900, cy: 220, tableNumber: 103, displayNum: 3 },
   ];
 
   // Generate Table Coordinates dynamically based on state
@@ -75,7 +75,7 @@ export default function TableMap({ onBack }: TableMapProps) {
     const isZig = i % 2 === 0;
     tables.push({
       id: i * 2,
-      cx: isZig ? 180 : 230,
+      cx: isZig ? 280 : 350,
       cy: cy,
       tableNumber: i + 1,
     });
@@ -88,7 +88,7 @@ export default function TableMap({ onBack }: TableMapProps) {
     const isZig = i % 2 === 0;
     tables.push({
       id: i * 2 + 1,
-      cx: isZig ? 720 : 670,
+      cx: isZig ? 920 : 850,
       cy: cy,
       tableNumber: numLeft + i + 1,
     });
@@ -104,8 +104,8 @@ export default function TableMap({ onBack }: TableMapProps) {
     const guestId = draggedGuestId || selectedGuestId;
     if (!guestId) return;
 
-    // Find first empty seat index (0 to 9)
-    const chairsCount = 10;
+    // Head table has 6 seats, other tables have 10 seats
+    const chairsCount = tableNumber === 0 ? 6 : 10;
     let targetSeatIndex = -1;
 
     for (let j = 0; j < chairsCount; j++) {
@@ -126,7 +126,12 @@ export default function TableMap({ onBack }: TableMapProps) {
         setSelectedGuestId(null);
       }
     } else {
-      alert(`La Mesa ${tableNumber > 100 ? `Balcón ${tableNumber - 100}` : tableNumber} ya está llena (máx. 10 invitados).`);
+      const tableName = tableNumber === 0 
+        ? "Mesa de Honor" 
+        : tableNumber > 100 
+        ? `Balcón ${tableNumber - 100}` 
+        : `Mesa ${tableNumber}`;
+      alert(`La ${tableName} ya está llena (máx. ${chairsCount} invitados).`);
       setDraggedGuestId(null);
       setSelectedGuestId(null);
     }
@@ -288,7 +293,10 @@ export default function TableMap({ onBack }: TableMapProps) {
         </div>
 
         {/* Scrollable layout box */}
-        <div className="relative glass-dark border border-white/5 rounded-2xl w-full max-w-[450px] aspect-[9/30] overflow-y-auto shadow-2xl bg-black">
+        <div 
+          className="relative glass-dark border border-white/5 rounded-2xl w-full max-w-[500px] overflow-y-auto shadow-2xl bg-black"
+          style={{ aspectRatio: "12/30" }}
+        >
           {/* SVG Plan Render */}
           <svg
             viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
@@ -431,21 +439,71 @@ export default function TableMap({ onBack }: TableMapProps) {
               );
             })}
 
-            {/* 1. Cabecera (Mesa Principal) */}
-            <g>
+            {/* 1. Cabecera (Mesa Principal - 6 sillas asignables) */}
+            <g
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => handleTableDrop(0)}
+              onClick={() => handleTableClick(0)}
+              className="cursor-pointer group/honor"
+            >
+              {/* Render 6 Chairs above the table rect */}
+              {Array.from({ length: 6 }).map((_, seatIndex) => {
+                const chairKey = `0-${seatIndex}`;
+                const assigned = assignments[chairKey];
+                const chairCx = 600 + (seatIndex - 2.5) * 80;
+                const chairCy = 390;
+
+                return (
+                  <g
+                    key={chairKey}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSeatClick(0, seatIndex);
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <circle
+                      cx={chairCx}
+                      cy={chairCy}
+                      r={14}
+                      className={`transition-all duration-300 ${
+                        assigned
+                          ? "fill-gold stroke-gold-hover stroke-[2]"
+                          : "fill-obsidian stroke-gray-700 hover:stroke-gold/70 stroke-[1]"
+                      }`}
+                    />
+                    {assigned && (
+                      <text
+                        x={chairCx}
+                        y={chairCy + 3}
+                        textAnchor="middle"
+                        className="fill-obsidian font-bold text-[8px] pointer-events-none"
+                      >
+                        {assigned.name.substring(0, 2).toUpperCase()}
+                      </text>
+                    )}
+                    <title>
+                      {assigned
+                        ? `Ocupado por: ${assigned.name}`
+                        : `Mesa de Honor - Silla ${seatIndex + 1}`}
+                    </title>
+                  </g>
+                );
+              })}
+
               <rect
-                x="250"
-                y="440"
-                width="400"
+                x="350"
+                y="435"
+                width="500"
                 height="80"
                 rx="8"
-                className="fill-dark-gray stroke-gold stroke-[2] shadow-xl"
+                className="fill-dark-gray stroke-gold/40 stroke-[2] shadow-xl group-hover/honor:stroke-gold transition-colors duration-300"
               />
               <text
-                x="450"
-                y="485"
+                x="600"
+                y="480"
                 textAnchor="middle"
-                className="fill-gold font-light tracking-[0.2em] text-sm uppercase"
+                className="fill-gold font-light tracking-[0.2em] text-xs uppercase"
               >
                 Mesa Principal de Honor
               </text>
@@ -454,9 +512,9 @@ export default function TableMap({ onBack }: TableMapProps) {
             {/* 2. Pista de Baile Central */}
             <g>
               <rect
-                x="380"
+                x="500"
                 y="720"
-                width="140"
+                width="200"
                 height="2150"
                 rx="6"
                 className="fill-zafiro/5 stroke-zafiro/25 stroke-[1] stroke-dasharray-[10,5]"
@@ -465,10 +523,10 @@ export default function TableMap({ onBack }: TableMapProps) {
               {[1100, 1700, 2400].map((textY, idx) => (
                 <text
                   key={idx}
-                  x="450"
+                  x="600"
                   y={textY}
                   textAnchor="middle"
-                  transform={`rotate(-90 450 ${textY})`}
+                  transform={`rotate(-90 600 ${textY})`}
                   className="fill-zafiro/30 font-semibold tracking-[0.4em] text-[11px] uppercase pointer-events-none"
                 >
                   Pista de Baile
