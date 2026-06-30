@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { db } from "@/lib/firebase";
+import { doc, collection, onSnapshot, setDoc } from "firebase/firestore";
 import LoginPortal from "@/components/modules/login/LoginPortal";
 import TableMap from "@/components/modules/tables/TableMap";
 import QuotesManager from "@/components/modules/quotes/QuotesManager";
@@ -10,6 +12,8 @@ import LogisticsTimeline from "@/components/modules/timeline/LogisticsTimeline";
 import QRScanner from "@/components/modules/scanner/QRScanner";
 import SettingsManager from "@/components/modules/settings/SettingsManager";
 import CalendarDashboard from "@/components/modules/calendar/CalendarDashboard";
+import EventEditor from "@/components/modules/events/EventEditor";
+import HostPortal from "@/components/modules/events/HostPortal";
 
 import { 
   LayoutDashboard, 
@@ -23,14 +27,57 @@ import {
   LogOut, 
   User, 
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  Plus
 } from "lucide-react";
 
-type TabType = "overview" | "tables" | "quotes" | "finance" | "timeline" | "scanner" | "settings" | "calendar";
+type TabType = "overview" | "tables" | "quotes" | "finance" | "timeline" | "scanner" | "settings" | "calendar" | "events";
 
 export default function Home() {
   const { user, loading, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>("overview");
+  
+  // Read share URL param for public host guest registration portal
+  const [shareEventId, setShareEventId] = useState<string | null>(null);
+
+  const [dbPermissions, setDbPermissions] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!db) return;
+    const unsub = onSnapshot(doc(db, "settings", "roles"), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.permissions) {
+          setDbPermissions(data.permissions);
+        }
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const share = searchParams.get("share");
+      if (share) {
+        setShareEventId(share);
+      }
+    }
+  }, []);
+
+  if (shareEventId) {
+    return (
+      <HostPortal 
+        eventId={shareEventId} 
+        onBackToLogin={() => {
+          setShareEventId(null);
+          if (typeof window !== "undefined") {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        }} 
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -50,6 +97,7 @@ export default function Home() {
   // RBAC Tab filtering
   const navigationItems = [
     { id: "overview", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "dueño", "gerencia", "host", "staff", "client"] },
+    { id: "events", label: "Gestión de Eventos", icon: Sparkles, roles: ["admin", "dueño", "gerencia"] },
     { id: "tables", label: "Plano de Mesas", icon: Map, roles: ["admin", "dueño", "gerencia", "host", "client"] },
     { id: "calendar", label: "Calendario & Reservas", icon: CalendarDays, roles: ["admin", "dueño", "gerencia", "host", "staff", "client"] },
     { id: "quotes", label: "Cotizaciones", icon: FileSpreadsheet, roles: ["admin", "dueño", "gerencia"] },
@@ -59,7 +107,28 @@ export default function Home() {
     { id: "settings", label: "Personal & Config.", icon: Sliders, roles: ["admin", "dueño", "gerencia"] },
   ];
 
-  const allowedTabs = navigationItems.filter(item => item.roles.includes(user.role || ""));
+  const userPermissions = dbPermissions.find(p => p.role === user?.role);
+
+  const allowedTabs = navigationItems.filter(item => {
+    if (!user) return false;
+    if (userPermissions && userPermissions.modules) {
+      const moduleMapping: Record<string, string> = {
+        overview: "dashboard",
+        tables: "mesas",
+        calendar: "calendario",
+        quotes: "cotizaciones",
+        finance: "finanzas",
+        timeline: "cronograma",
+        scanner: "escáner",
+        events: "eventos"
+      };
+      const moduleKey = moduleMapping[item.id];
+      if (moduleKey && userPermissions.modules[moduleKey] !== undefined) {
+        return userPermissions.modules[moduleKey];
+      }
+    }
+    return item.roles.includes(user.role || "");
+  });
 
   const renderActiveContent = () => {
     switch (activeTab) {
@@ -70,7 +139,7 @@ export default function Home() {
         // Let's render it full screen with a back button returning to the main dashboard.
         return <TableMap onBack={() => setActiveTab("overview")} />;
       case "quotes":
-        return <QuotesManager />;
+        return <QuotesManager setActiveTab={setActiveTab} />;
       case "finance":
         return <FinanceDashboard />;
       case "timeline":
@@ -81,6 +150,8 @@ export default function Home() {
         return <SettingsManager />;
       case "calendar":
         return <CalendarDashboard />;
+      case "events":
+        return <EventEditor />;
       default:
         return <OverviewTab user={user} setActiveTab={setActiveTab} allowedTabs={allowedTabs} />;
     }
@@ -173,6 +244,368 @@ interface OverviewProps {
 }
 
 function OverviewTab({ user, setActiveTab, allowedTabs }: OverviewProps) {
+  const isClient = user.role === "client";
+  const clientEventId = typeof window !== "undefined" ? localStorage.getItem("svip_client_event_id") || "event-123" : "event-123";
+
+  const [eventData, setEventData] = useState<any>(null);
+  const [guestsCount, setGuestsCount] = useState(0);
+  const [seatedCount, setSeatedCount] = useState(0);
+
+  // Payment reporting states
+  const [payDate, setPayDate] = useState(new Date().toISOString().split("T")[0]);
+  const [payAmount, setPayAmount] = useState("");
+  const [payReference, setPayReference] = useState("");
+  const [reports, setReports] = useState<any[]>([]);
+  const [isPayReporting, setIsPayReporting] = useState(false);
+
+  useEffect(() => {
+    if (!db || !isClient) return;
+    const unsub = onSnapshot(collection(db, "payment_reports"), (snap) => {
+      const list: any[] = [];
+      snap.forEach(docSnap => {
+        const d = docSnap.data();
+        if (d.eventId === clientEventId) {
+          list.push({ id: docSnap.id, ...d });
+        }
+      });
+      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setReports(list);
+    });
+    return () => unsub();
+  }, [clientEventId, isClient]);
+
+  const handleReportPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!payAmount || !payReference || !db) return;
+    setIsPayReporting(true);
+    try {
+      const reportId = `report-${Date.now()}`;
+      await setDoc(doc(db, "payment_reports", reportId), {
+        eventId: clientEventId,
+        eventTitle: eventData?.title || "Evento Sin Título",
+        clientName: eventData?.clientInfo?.name || "Anfitrión",
+        date: payDate,
+        amount: Number(payAmount),
+        reference: payReference,
+        status: "pending",
+        createdAt: new Date().toISOString()
+      });
+      setPayAmount("");
+      setPayReference("");
+      alert("Reporte de pago enviado con éxito. Pendiente de verificación por gerencia.");
+    } catch (err) {
+      console.error(err);
+      alert("Error al enviar el reporte.");
+    } finally {
+      setIsPayReporting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!db || !isClient) return;
+
+    // Load event info
+    const unsubEvent = onSnapshot(doc(db, "events", clientEventId), (docSnap) => {
+      if (docSnap.exists()) {
+        setEventData(docSnap.data());
+      }
+    });
+
+    // Load guest info to show registration progress
+    const unsubGuests = onSnapshot(collection(db, "events", clientEventId, "guests"), (snap) => {
+      let count = 0;
+      let seated = 0;
+      snap.forEach(docSnap => {
+        const d = docSnap.data();
+        const t = d.tickets || 1;
+        count += t;
+        if (d.tableId !== null && d.tableId !== undefined) {
+          seated += t;
+        }
+      });
+      setGuestsCount(count);
+      setSeatedCount(seated);
+    });
+
+    return () => {
+      unsubEvent();
+      unsubGuests();
+    };
+  }, [clientEventId, isClient]);
+
+  // Financial Calculations
+  const totalCost = eventData?.fixedServices?.reduce((acc: number, s: any) => acc + s.price, 0) * (1 - (eventData?.discountPercent || 0) / 100) - (eventData?.discountFixed || 0) || 0;
+  const paidAmount = eventData?.paidAmount || 0;
+  const balanceDue = Math.max(0, totalCost - paidAmount);
+  const paidPercent = totalCost > 0 ? (paidAmount / totalCost) * 100 : 0;
+
+  // Days Countdown
+  const getDaysLeft = () => {
+    if (!eventData?.date) return 0;
+    const evDate = new Date(eventData.date + "T00:00:00");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diff = evDate.getTime() - today.getTime();
+    return Math.ceil(diff / (1000 * 3600 * 24));
+  };
+  const daysLeft = getDaysLeft();
+
+  if (isClient) {
+    return (
+      <div className="space-y-6 w-full max-w-4xl mx-auto py-4">
+        {/* Welcome Banner */}
+        <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-br from-gold/10 via-obsidian to-obsidian p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="space-y-2">
+            <span className="text-[10px] text-gold tracking-widest font-semibold uppercase block">
+              Tu Panel de Anfitrión
+            </span>
+            <h1 className="text-3xl font-light text-white leading-tight">
+              ¡Hola, <span className="font-semibold text-gold">{eventData?.clientInfo?.name || "Anfitrión"}</span>!
+            </h1>
+            <p className="text-xs text-gray-300 font-light max-w-md">
+              Estamos preparando cada detalle para <span className="font-medium text-white">{eventData?.title || "tu gran evento"}</span>. Aquí puedes ver el estatus en tiempo real.
+            </p>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center min-w-[140px] shadow-lg shrink-0">
+            <span className="text-[10px] text-gray-400 font-light uppercase tracking-wider block mb-1">
+              Cuenta Regresiva
+            </span>
+            <span className="text-3xl font-mono font-bold text-gold">
+              {daysLeft > 0 ? daysLeft : 0}
+            </span>
+            <span className="text-[10px] text-gray-400 font-light mt-0.5">
+              {daysLeft === 1 ? "Día restante" : "Días restantes"}
+            </span>
+          </div>
+        </div>
+
+        {/* Financial Progress Panel */}
+        <div className="glass-dark rounded-2xl p-6 border border-white/5 space-y-6">
+          <div>
+            <span className="text-[10px] text-gold tracking-widest font-semibold uppercase block mb-1">
+              Finanzas del Evento
+            </span>
+            <h2 className="text-lg font-light text-white">
+              Resumen de Pagos y Contrato
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="glass p-4 rounded-xl border border-white/5 space-y-1">
+              <span className="text-[9px] text-gray-400 font-light uppercase block">Costo Total Contratado</span>
+              <span className="text-xl font-mono font-bold text-white">${totalCost.toLocaleString()}</span>
+            </div>
+            <div className="glass p-4 rounded-xl border border-white/5 space-y-1">
+              <span className="text-[9px] text-gray-400 font-light uppercase block">Monto Abonado</span>
+              <span className="text-xl font-mono font-bold text-emerald-400">${paidAmount.toLocaleString()}</span>
+            </div>
+            <div className="glass p-4 rounded-xl border border-white/5 space-y-1">
+              <span className="text-[9px] text-gray-400 font-light uppercase block">Saldo Pendiente</span>
+              <span className="text-xl font-mono font-bold text-rose-400">${balanceDue.toLocaleString()}</span>
+            </div>
+          </div>
+
+          {/* Payment Progress Bar */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center text-[10px]">
+              <span className="text-gray-400">Progreso de Pago</span>
+              <span className="text-gold font-bold">{paidPercent.toFixed(1)}% liquidado</span>
+            </div>
+            <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden border border-white/5">
+              <div 
+                className="h-full bg-gradient-to-r from-gold via-emerald-400 to-emerald-500 rounded-full transition-all duration-1000"
+                style={{ width: `${Math.min(100, paidPercent)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Payment Reporter & Log Tab */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Form */}
+          <form onSubmit={handleReportPayment} className="glass-dark rounded-2xl p-6 border border-white/5 space-y-4">
+            <div>
+              <span className="text-[10px] text-gold tracking-widest font-semibold uppercase block mb-1">
+                Registrar Pagos
+              </span>
+              <h3 className="text-sm font-semibold text-white">Reportar Nuevo Pago</h3>
+              <p className="text-[10px] text-gray-400 font-light mt-1">
+                Selecciona la fecha, el monto y escribe el folio del recibo físico, ventanilla bancaria o transferencia.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[9px] text-gray-400 font-light uppercase block mb-1">Fecha del Pago</label>
+                <input
+                  type="date"
+                  required
+                  value={payDate}
+                  onChange={(e) => setPayDate(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-[9px] text-gray-400 font-light uppercase block mb-1">Monto del Pago ($)</label>
+                <input
+                  type="number"
+                  required
+                  placeholder="Ej. 15000"
+                  value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-[9px] text-gray-400 font-light uppercase block mb-1">Referencia / Folio / Ticket</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Folio 8945, Ventanilla, Transf. STP..."
+                  value={payReference}
+                  onChange={(e) => setPayReference(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold/30"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isPayReporting}
+                className="w-full py-2.5 bg-gold hover:bg-gold-hover text-obsidian rounded-xl text-xs font-bold uppercase tracking-wider transition-colors duration-300 disabled:opacity-50"
+              >
+                {isPayReporting ? "Enviando..." : "Reportar Pago"}
+              </button>
+            </div>
+          </form>
+
+          {/* History */}
+          <div className="glass-dark rounded-2xl p-6 border border-white/5 flex flex-col justify-between gap-4">
+            <div>
+              <span className="text-[10px] text-gold tracking-widest font-semibold uppercase block mb-1">
+                Seguimiento
+              </span>
+              <h3 className="text-sm font-semibold text-white">Historial de Reportes</h3>
+              <p className="text-[10px] text-gray-400 font-light mt-1">
+                Una vez verificado y autorizado por el personal (gerencia o propietario) se reflejará en los abonos.
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto max-h-[220px] space-y-2 pr-1">
+              {reports.map((rep) => (
+                <div key={rep.id} className="glass p-3 rounded-xl border border-white/5 flex justify-between items-center text-xs">
+                  <div>
+                    <div className="font-semibold text-white">${rep.amount.toLocaleString()}</div>
+                    <div className="text-[9px] text-gray-400 mt-0.5 font-mono">{rep.date} | Ref: {rep.reference}</div>
+                  </div>
+                  <div>
+                    {rep.status === "pending" && (
+                      <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-full text-[9px] font-semibold">
+                        Pendiente
+                      </span>
+                    )}
+                    {rep.status === "approved" && (
+                      <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full text-[9px] font-semibold">
+                        Autorizado
+                      </span>
+                    )}
+                    {rep.status === "rejected" && (
+                      <span className="px-2 py-0.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-full text-[9px] font-semibold">
+                        Rechazado
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {reports.length === 0 && (
+                <div className="h-full flex items-center justify-center text-center text-gray-500 italic text-[11px] py-8">
+                  No hay reportes de pagos enviados aún.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Logistics & Seating Progress */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Guest Registration Progress */}
+          <div className="glass-dark rounded-2xl p-6 border border-white/5 space-y-4">
+            <div>
+              <span className="text-[10px] text-gold tracking-widest font-semibold uppercase block mb-1">
+                Pase de Lista
+              </span>
+              <h3 className="text-sm font-semibold text-white">Registro de Invitados</h3>
+            </div>
+
+            <div className="space-y-4 pt-2">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-400">Total Pre-Registrados</span>
+                <span className="text-xs text-white font-mono font-semibold">
+                  {guestsCount} / {eventData?.guestLimit || 150} pax
+                </span>
+              </div>
+              
+              <div className="w-full h-2.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
+                <div 
+                  className="h-full bg-gold rounded-full transition-all duration-1000"
+                  style={{ width: `${Math.min(100, (guestsCount / (eventData?.guestLimit || 150)) * 100)}%` }}
+                />
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-400">Asignados a Mesas (Croquis)</span>
+                <span className="text-xs text-white font-mono font-semibold">
+                  {seatedCount} / {guestsCount || 1} pax
+                </span>
+              </div>
+              
+              <div className="w-full h-2.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
+                <div 
+                  className="h-full bg-gold rounded-full transition-all duration-1000"
+                  style={{ width: `${Math.min(100, (seatedCount / (guestsCount || 1)) * 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Shortcuts */}
+          <div className="glass-dark rounded-2xl p-6 border border-white/5 flex flex-col justify-between gap-6">
+            <div>
+              <span className="text-[10px] text-gold tracking-widest font-semibold uppercase block mb-1">
+                Accesos Directos
+              </span>
+              <h3 className="text-sm font-semibold text-white">Acciones Operativas</h3>
+            </div>
+
+            <div className="space-y-3">
+              {allowedTabs.some(t => t.id === "tables") && (
+                <button
+                  onClick={() => setActiveTab("tables")}
+                  className="w-full py-3 bg-gold hover:bg-gold-hover text-obsidian rounded-xl text-xs font-bold uppercase tracking-wider transition-colors duration-300 flex items-center justify-center gap-2 shadow-lg"
+                >
+                  <Map className="h-4 w-4" />
+                  Organizar Croquis de Mesas
+                </button>
+              )}
+              
+              <a
+                href={`/?share=${clientEventId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-2"
+              >
+                <Plus className="h-4 w-4 text-gold" />
+                Registrar Nuevos Invitados
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 w-full max-w-4xl mx-auto py-4">
       <div>
@@ -212,6 +645,7 @@ function OverviewTab({ user, setActiveTab, allowedTabs }: OverviewProps) {
                     {tab.label}
                   </h3>
                   <p className="text-gray-400 text-xs font-light mt-0.5">
+                    {tab.id === "events" && "Configura detalles operativos de contratos, menús de cocina y aforos del salón."}
                     {tab.id === "tables" && "Asigna invitados en el croquis 2D interactivo de 30m."}
                     {tab.id === "quotes" && "Administra presupuestos dinámicos y contratos."}
                     {tab.id === "finance" && "Registra abonos y evalúa rentabilidad neta del salón."}

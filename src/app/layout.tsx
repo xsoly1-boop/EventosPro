@@ -11,6 +11,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "SocialesVIP - Gestión Premium de Eventos",
   description: "Plataforma de gestión e invitaciones exclusiva para Salones de Eventos Sociales",
+  manifest: "/manifest.json"
 };
 
 export default function RootLayout({

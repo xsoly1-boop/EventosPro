@@ -1,0 +1,17 @@
+{
+  "name": "SocialesVIP Eventos",
+  "short_name": "SocialesVIP",
+  "description": "Sistema ERP y Control de Aforo de SocialesVIP",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B0C10",
+  "theme_color": "#D4AF37",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

@@ -15,13 +15,15 @@ import {
   AlertTriangle,
   Play,
   RotateCcw,
-  Sparkles
+  Sparkles,
+  Trash2
 } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { 
   collection, 
   doc, 
   setDoc, 
+  deleteDoc,
   onSnapshot 
 } from "firebase/firestore";
 
@@ -32,6 +34,7 @@ interface TimelineItem {
   description: string;
   responsible: string;
   completed: boolean;
+  requiredStaff?: string[];
 }
 
 interface StaffNotification {
@@ -52,8 +55,22 @@ export default function LogisticsTimeline() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isLaunched, setIsLaunched] = useState(false);
 
+  // Dynamic print and events list configuration states
+  const [events, setEvents] = useState<{ id: string; title: string; menu?: string }[]>([]);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printLogo, setPrintLogo] = useState("imperial");
+  const [printPaperSize, setPrintPaperSize] = useState("letter");
+  const [printObservations, setPrintObservations] = useState("");
+
   // Reactive states from Firestore
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
+
+  // Form states for adding custom timeline milestone
+  const [newTime, setNewTime] = useState("18:00");
+  const [newTitle, setNewTitle] = useState("");
+  const [newResponsible, setNewResponsible] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [reqStaff, setReqStaff] = useState<string[]>(["Cocina", "Cabina", "Animación", "Valet Parking", "Meseros", "Show", "Fotógrafo"]);
 
   // Initial staff notifications list with predefined offsets
   const [staffCalls, setStaffCalls] = useState<StaffNotification[]>([
@@ -65,6 +82,22 @@ export default function LogisticsTimeline() {
     { id: "s-6", name: "Eduardo Pérez", role: "Jefe de Bartenders", category: "Show", offsetHours: 0, offsetUnit: "horas", phone: "+52 55 6789 0123", status: "pendiente" },
     { id: "s-7", name: "Esteban Vega", role: "Fotógrafo Oficial", category: "Fotógrafo", offsetHours: 1, offsetUnit: "horas", phone: "+52 55 7890 1234", status: "pendiente" },
   ]);
+
+  // Load events list dynamically from Firestore
+  useEffect(() => {
+    if (!db) return;
+    const unsubscribe = onSnapshot(collection(db, "events"), (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach((doc) => {
+        list.push({ id: doc.id, title: doc.data().title || doc.id, menu: doc.data().menu || "" });
+      });
+      if (!list.some(e => e.id === "event-123")) {
+        list.unshift({ id: "event-123", title: "Gran Gala SocialesVIP", menu: "Espagueti al burro, lomo adobado, papas al gratin" });
+      }
+      setEvents(list);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // 1. Subscribe to Timeline Items Collection & config document
   useEffect(() => {
@@ -83,6 +116,7 @@ export default function LogisticsTimeline() {
           description: data.description || "",
           responsible: data.responsible || "",
           completed: data.completed || false,
+          requiredStaff: data.requiredStaff || []
         });
       });
 
@@ -286,6 +320,33 @@ export default function LogisticsTimeline() {
     }
   };
 
+  const handleAddTimelineItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim() || !newResponsible.trim() || !db) return;
+    
+    const id = `t-${Date.now()}`;
+    await setDoc(doc(db, "timeline", id), {
+      time: newTime,
+      title: newTitle,
+      description: newDesc,
+      responsible: newResponsible,
+      completed: false,
+      requiredStaff: reqStaff
+    });
+    
+    setNewTitle("");
+    setNewResponsible("");
+    setNewDesc("");
+    setReqStaff(["Cocina", "Cabina", "Animación", "Valet Parking", "Meseros", "Show", "Fotógrafo"]);
+  };
+
+  const handleDeleteTimelineItem = async (id: string) => {
+    if (!db) return;
+    if (window.confirm("¿Seguro que deseas eliminar este hito del cronograma?")) {
+      await deleteDoc(doc(db, "timeline", id));
+    }
+  };
+
   const handleSelectedEventChange = async (val: string) => {
     setSelectedEvent(val);
     if (db) {
@@ -335,15 +396,23 @@ export default function LogisticsTimeline() {
               Convocatoria Automatizada de Staff (WhatsApp)
             </h3>
           </div>
-          {isLaunched && (
+          <div className="flex gap-2">
             <button
-              onClick={handleResetConvocatoria}
-              className="py-1 px-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-all duration-300"
+              onClick={() => setShowPrintModal(true)}
+              className="py-1 px-3 bg-gold/10 hover:bg-gold/25 border border-gold/20 text-gold rounded-lg text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-all duration-300"
             >
-              <RotateCcw className="h-3 w-3" />
-              Reiniciar Convocatoria
+              Imprimir Cronograma
             </button>
-          )}
+            {isLaunched && (
+              <button
+                onClick={handleResetConvocatoria}
+                className="py-1 px-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-all duration-300"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Reiniciar Convocatoria
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -358,9 +427,16 @@ export default function LogisticsTimeline() {
               onChange={(e) => handleSelectedEventChange(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 disabled:opacity-50"
             >
-              <option value="Boda de Sofía & Alejandro">Boda de Sofía & Alejandro</option>
-              <option value="XV Años de Valeria">XV Años de Valeria</option>
-              <option value="Cena Corporativa TechCorp">Cena Corporativa TechCorp</option>
+              {events.map((ev) => (
+                <option key={ev.id} value={ev.title}>{ev.title}</option>
+              ))}
+              {events.length === 0 && (
+                <>
+                  <option value="Boda de Sofía & Alejandro">Boda de Sofía & Alejandro</option>
+                  <option value="XV Años de Valeria">XV Años de Valeria</option>
+                  <option value="Cena Corporativa TechCorp">Cena Corporativa TechCorp</option>
+                </>
+              )}
             </select>
           </div>
 
@@ -396,6 +472,93 @@ export default function LogisticsTimeline() {
             )}
           </div>
         </div>
+
+        {/* Custom Milestone/Task Creation Form */}
+        <form onSubmit={handleAddTimelineItem} className="border-t border-white/5 pt-5 mt-4 space-y-4">
+          <div className="flex items-center gap-1.5 text-gold text-xs font-semibold uppercase tracking-wider">
+            <span>+ Personalizar Cronograma (Agregar Tarea / Hito)</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div>
+              <label className="text-[9px] text-gray-500 font-bold uppercase block mb-1">Hora de Tarea</label>
+              <input
+                type="time"
+                required
+                value={newTime}
+                onChange={(e) => setNewTime(e.target.value)}
+                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="text-[9px] text-gray-500 font-bold uppercase block mb-1">Título de Actividad</label>
+              <input
+                type="text"
+                required
+                placeholder="Ej. Entrada de Mariachi"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-gold/30"
+              />
+            </div>
+
+            <div>
+              <label className="text-[9px] text-gray-500 font-bold uppercase block mb-1">Responsable</label>
+              <input
+                type="text"
+                required
+                placeholder="Ej. Staff / DJ"
+                value={newResponsible}
+                onChange={(e) => setNewResponsible(e.target.value)}
+                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-gold/30"
+              />
+            </div>
+
+            <div className="flex items-end">
+              <button
+                type="submit"
+                className="w-full py-1.5 bg-gold hover:bg-gold-hover text-obsidian rounded-lg text-xs font-bold uppercase tracking-wider transition-colors"
+              >
+                Agregar Hito
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[9px] text-gray-500 font-bold uppercase block mb-1">Descripción / Notas Logísticas</label>
+            <input
+              type="text"
+              placeholder="Ej. Ingresa mariachi por puerta trasera, Dj apaga audio principal..."
+              value={newDesc}
+              onChange={(e) => setNewDesc(e.target.value)}
+              className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-1.5 text-xs text-white focus:outline-none focus:border-gold/30 font-light"
+            />
+          </div>
+
+          <div className="border-t border-white/5 pt-3">
+            <span className="text-[9px] text-gray-500 font-bold uppercase block mb-2">Personal / Categorías Requeridas</span>
+            <div className="flex flex-wrap gap-4 text-[11px]">
+              {["Cocina", "Cabina", "Animación", "Valet Parking", "Meseros", "Show", "Fotógrafo"].map((cat) => (
+                <label key={cat} className="flex items-center gap-1.5 text-gray-300 hover:text-white cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={reqStaff.includes(cat)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setReqStaff([...reqStaff, cat]);
+                      } else {
+                        setReqStaff(reqStaff.filter((c) => c !== cat));
+                      }
+                    }}
+                    className="accent-gold rounded border-gray-700 bg-black h-3.5 w-3.5"
+                  />
+                  <span>{cat}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </form>
 
         {/* Live Messages Status List */}
         {isLaunched && (
@@ -448,6 +611,87 @@ export default function LogisticsTimeline() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Timeline items list */}
+      <div className="relative border-l border-white/5 ml-4 md:ml-6 space-y-6 pt-6 no-print">
+        {timeline.map((item, idx) => {
+          return (
+            <div key={item.id} className="relative pl-8 md:pl-10 group">
+              {/* Bullet indicator */}
+              <div
+                onClick={() => handleToggleComplete(item.id)}
+                className={`absolute left-0 top-0.5 -translate-x-1/2 w-6 h-6 rounded-full border flex items-center justify-center cursor-pointer transition-all duration-300 z-10 ${
+                  item.completed
+                    ? "bg-gold border-gold text-obsidian"
+                    : "bg-obsidian border-gray-700 text-gray-500 hover:border-gold"
+                }`}
+              >
+                {item.completed ? (
+                  <CheckSquare className="h-3.5 w-3.5" />
+                ) : (
+                  <Square className="h-3.5 w-3.5" />
+                )}
+              </div>
+
+              {/* Box */}
+              <div
+                className={`glass p-5 rounded-xl border transition-all duration-300 ${
+                  item.completed
+                    ? "border-gold/20 bg-gold/[0.02]"
+                    : "border-white/5 hover:border-white/10"
+                }`}
+              >
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5 text-gold text-xs font-semibold font-mono bg-gold/10 px-2.5 py-1 rounded border border-gold/20">
+                      <Clock className="h-3 w-3" />
+                      <span>{item.time} hrs</span>
+                    </div>
+                    <h3
+                      className={`text-sm font-semibold transition-all ${
+                        item.completed ? "text-gray-400 line-through font-light" : "text-white"
+                      }`}
+                    >
+                      {item.title}
+                    </h3>
+                    {item.requiredStaff && item.requiredStaff.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {item.requiredStaff.map((cat) => (
+                          <span key={cat} className="text-[8px] font-bold uppercase tracking-wider bg-gold/10 border border-gold/20 text-gold px-1.5 py-0.5 rounded">
+                            {cat}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 text-[10px] text-gray-500 font-semibold bg-white/5 px-2 py-0.5 rounded uppercase border border-white/5">
+                      <User className="h-2.5 w-2.5 text-gold/60" />
+                      <span>{item.responsible}</span>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteTimelineItem(item.id)}
+                      className="text-red-400 hover:text-red-300 p-1 hover:bg-white/5 rounded transition-colors"
+                      title="Eliminar Hito"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <p
+                  className={`text-xs font-light leading-relaxed ${
+                    item.completed ? "text-gray-500" : "text-gray-400"
+                  }`}
+                >
+                  {item.description}
+                </p>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Confirmation Modal */}
@@ -508,68 +752,183 @@ export default function LogisticsTimeline() {
         </div>
       )}
 
-      {/* Timeline items list */}
-      <div className="relative border-l border-white/5 ml-4 md:ml-6 space-y-6 pt-2">
-        {timeline.map((item, idx) => {
-          return (
-            <div key={item.id} className="relative pl-8 md:pl-10 group">
-              {/* Bullet indicator */}
-              <div
-                onClick={() => handleToggleComplete(item.id)}
-                className={`absolute left-0 top-0.5 -translate-x-1/2 w-6 h-6 rounded-full border flex items-center justify-center cursor-pointer transition-all duration-300 z-10 ${
-                  item.completed
-                    ? "bg-gold border-gold text-obsidian"
-                    : "bg-obsidian border-gray-700 text-gray-500 hover:border-gold"
-                }`}
+      {/* Print settings configuration modal */}
+      {showPrintModal && (
+        <div className="fixed inset-0 bg-obsidian/85 flex items-center justify-center p-4 z-50 animate-fade-in backdrop-blur-sm no-print">
+          <div className="glass-dark rounded-2xl border border-gold/20 max-w-md w-full p-6 space-y-4 animate-scale-up">
+            <div className="flex justify-between items-center border-b border-white/5 pb-3">
+              <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
+                Configuración de Impresión
+              </h3>
+              <button 
+                onClick={() => setShowPrintModal(false)}
+                className="text-gray-500 hover:text-white text-xs"
               >
-                {item.completed ? (
-                  <CheckSquare className="h-3.5 w-3.5" />
-                ) : (
-                  <Square className="h-3.5 w-3.5" />
-                )}
+                Cerrar
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                  Logotipo en Cabecera
+                </label>
+                <select
+                  value={printLogo}
+                  onChange={(e) => setPrintLogo(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                >
+                  <option value="imperial">Grand Salón Imperial</option>
+                  <option value="none">Sin Logotipo</option>
+                </select>
               </div>
 
-              {/* Box */}
-              <div
-                className={`glass p-5 rounded-xl border transition-all duration-300 ${
-                  item.completed
-                    ? "border-gold/20 bg-gold/[0.02]"
-                    : "border-white/5 hover:border-white/10"
-                }`}
-              >
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5 text-gold text-xs font-semibold font-mono bg-gold/10 px-2.5 py-1 rounded border border-gold/20">
-                      <Clock className="h-3 w-3" />
-                      <span>{item.time} hrs</span>
-                    </div>
-                    <h3
-                      className={`text-sm font-semibold transition-all ${
-                        item.completed ? "text-gray-400 line-through font-light" : "text-white"
-                      }`}
-                    >
-                      {item.title}
-                    </h3>
-                  </div>
-
-                  <div className="flex items-center gap-1 text-[10px] text-gray-500 font-semibold bg-white/5 px-2 py-0.5 rounded uppercase border border-white/5">
-                    <User className="h-2.5 w-2.5 text-gold/60" />
-                    <span>{item.responsible}</span>
-                  </div>
-                </div>
-
-                <p
-                  className={`text-xs font-light leading-relaxed ${
-                    item.completed ? "text-gray-500" : "text-gray-400"
-                  }`}
+              <div>
+                <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                  Tamaño de Papel
+                </label>
+                <select
+                  value={printPaperSize}
+                  onChange={(e) => setPrintPaperSize(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
                 >
-                  {item.description}
-                </p>
+                  <option value="letter">Carta (8.5" x 11")</option>
+                  <option value="a4">A4 (210mm x 297mm)</option>
+                  <option value="legal">Oficio (8.5" x 14")</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                  Observaciones Generales (Pie de Página)
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Instrucciones adicionales para el staff durante el montaje..."
+                  value={printObservations}
+                  onChange={(e) => setPrintObservations(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPrintModal(false)}
+                  className="w-1/2 py-2.5 rounded-lg border border-gray-700 text-gray-400 text-xs font-semibold uppercase hover:bg-white/5 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPrintModal(false);
+                    setTimeout(() => window.print(), 300);
+                  }}
+                  className="w-1/2 py-2.5 bg-gold hover:bg-gold-hover text-obsidian rounded-lg text-xs font-bold uppercase tracking-wider transition-colors shadow-[0_4px_15px_rgba(212,175,55,0.15)]"
+                >
+                  Imprimir Ahora
+                </button>
               </div>
             </div>
-          );
-        })}
+          </div>
+        </div>
+      )}
+
+      {/* Printable template container (Only shown on physical print) */}
+      <div className="hidden print:block text-black p-8 bg-white w-full h-full text-xs font-sans">
+        <div className="flex justify-between items-center border-b-2 border-gray-400 pb-4 mb-6">
+          <div>
+            {printLogo === "imperial" && (
+              <h2 className="text-xl font-bold uppercase tracking-widest text-gray-900">Grand Salón Imperial</h2>
+            )}
+            <h1 className="text-2xl font-extrabold mt-1 text-black uppercase">Cronograma de Servicio del Evento</h1>
+            <p className="text-xs text-gray-600 mt-1">
+              Evento: <strong className="text-black font-semibold">{selectedEvent}</strong> | Hora de Inicio: <strong className="text-black font-semibold">{eventTime} hrs</strong>
+            </p>
+          </div>
+          <div className="text-right">
+            <span className="text-[10px] text-gray-400 font-mono">SocialesVIP Logística</span>
+          </div>
+        </div>
+
+        {/* Dynamic Predefined Menu Section */}
+        {events.find(e => e.title === selectedEvent)?.menu && (
+          <div className="border border-gray-300 rounded-xl p-4 bg-gray-50 mb-6">
+            <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-700 mb-1">Menú de Cocina Seleccionado</h3>
+            <p className="text-xs text-gray-800 font-serif leading-relaxed italic">
+              {events.find(e => e.title === selectedEvent)?.menu}
+            </p>
+          </div>
+        )}
+
+        {/* Timeline printed list table */}
+        <table className="w-full text-left border-collapse border border-gray-300">
+          <thead>
+            <tr className="bg-gray-100 border-b border-gray-300 text-gray-700 font-bold uppercase text-[10px]">
+              <th className="py-2.5 px-3 border border-gray-300 w-24">Hora</th>
+              <th className="py-2.5 px-3 border border-gray-300">Actividad Logística</th>
+              <th className="py-2.5 px-3 border border-gray-300">Descripción de Operación</th>
+              <th className="py-2.5 px-3 border border-gray-300 w-32">Responsable</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {timeline.map((item) => (
+              <tr key={item.id} className="text-gray-900">
+                <td className="py-2.5 px-3 border border-gray-300 font-mono font-bold">{item.time} hrs</td>
+                <td className="py-2.5 px-3 border border-gray-300 font-bold">
+                  <div>{item.title}</div>
+                  {item.requiredStaff && item.requiredStaff.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {item.requiredStaff.map((cat) => (
+                        <span key={cat} className="text-[8px] font-extrabold uppercase tracking-wider bg-gray-200 text-gray-800 px-1.5 py-0.5 rounded border border-gray-300">
+                          {cat}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </td>
+                <td className="py-2.5 px-3 border border-gray-300 text-gray-600 leading-normal">{item.description}</td>
+                <td className="py-2.5 px-3 border border-gray-300">{item.responsible}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* Print general observations at bottom */}
+        {printObservations && (
+          <div className="border-t border-gray-300 pt-4 mt-8">
+            <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-700 mb-1.5">Observaciones Generales para el Staff</h4>
+            <p className="text-xs text-gray-600 leading-relaxed font-light">{printObservations}</p>
+          </div>
+        )}
       </div>
+
+      {/* Global CSS style block for printing adjustments */}
+      <style>{`
+        @media print {
+          /* Force page margins and hide app framework */
+          body {
+            background: white !important;
+            color: black !important;
+          }
+          aside, nav, button, .no-print, select, input, label, .glass, .glass-dark {
+            display: none !important;
+          }
+          main, #root, .flex-grow {
+            max-height: none !important;
+            overflow: visible !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+          }
+          /* Custom paper sizes */
+          @page {
+            size: ${printPaperSize === "letter" ? "letter" : printPaperSize === "a4" ? "A4" : "8.5in 14in"};
+            margin: 1.5cm;
+          }
+        }
+      `}</style>
     </div>
   );
 }

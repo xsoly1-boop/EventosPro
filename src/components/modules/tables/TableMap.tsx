@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { MoveLeft, HelpCircle, Users } from "lucide-react";
 import { useEventTables } from "@/hooks/useEventTables";
+import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
 import { doc, onSnapshot, setDoc, deleteDoc, collection } from "firebase/firestore";
 
@@ -24,25 +25,45 @@ interface TableMapProps {
 }
 
 export default function TableMap({ onBack }: TableMapProps) {
-  const [selectedEventId, setSelectedEventId] = useState("event-123");
+  const { user } = useAuth();
+  const [selectedEventId, setSelectedEventId] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("svip_client_event_id");
+      if (saved) return saved;
+    }
+    return "event-123";
+  });
   const { guests, loading, error, assignGuest, unassignGuest, seedMockData } = useEventTables(selectedEventId);
 
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
   const [draggedGuestId, setDraggedGuestId] = useState<string | null>(null);
 
   // Events list state
-  const [events, setEvents] = useState<{ id: string; title: string }[]>([]);
+  const [events, setEvents] = useState<{ id: string; title: string; guestLimit?: number; openSeatingMode?: boolean | "hibrido"; enableBalcony?: boolean }[]>([]);
 
   // Load events list from Firestore
   useEffect(() => {
     if (!db) return;
     const unsubscribe = onSnapshot(collection(db, "events"), (snapshot) => {
-      const list: { id: string; title: string }[] = [];
+      const list: any[] = [];
       snapshot.forEach((doc) => {
-        list.push({ id: doc.id, title: doc.data().title || doc.id });
+        const data = doc.data();
+        list.push({ 
+          id: doc.id, 
+          title: data.title || doc.id,
+          guestLimit: data.guestLimit !== undefined ? Number(data.guestLimit) : 150,
+          openSeatingMode: data.openSeatingMode || false,
+          enableBalcony: data.enableBalcony || false
+        });
       });
       if (!list.some(e => e.id === "event-123")) {
-        list.unshift({ id: "event-123", title: "Gran Gala SocialesVIP" });
+        list.unshift({ 
+          id: "event-123", 
+          title: "Gran Gala SocialesVIP",
+          guestLimit: 150,
+          openSeatingMode: false,
+          enableBalcony: true
+        });
       }
       setEvents(list);
     });
@@ -73,31 +94,28 @@ export default function TableMap({ onBack }: TableMapProps) {
   const canvasHeight = 3000;
 
   // Dynamic tables state
-  const [totalTables, setTotalTables] = useState<number>(26);
-  const [honorCapacity, setHonorCapacity] = useState<number>(6);
-  const [openSeatingMode, setOpenSeatingMode] = useState<boolean | "hibrido">(false);
+  // Dynamic variables calculated from selected event metadata
+  const currentEvent = events.find(e => e.id === selectedEventId);
+  const eventCapacity = currentEvent?.guestLimit || 150;
+  const openSeatingMode = currentEvent?.openSeatingMode || false;
 
-  // Subscribe to settings from Firestore to sync totalTables and honorCapacity in real-time
+  const [honorCapacity, setHonorCapacity] = useState<number>(6);
+
+  // Subscribe to honor capacity settings from Firestore
   useEffect(() => {
     if (!db) return;
     const docRef = doc(db, "settings", "salon");
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        if (data.totalTables !== undefined) setTotalTables(data.totalTables);
         if (data.honorCapacity !== undefined) setHonorCapacity(data.honorCapacity);
-        if (data.openSeatingMode !== undefined) setOpenSeatingMode(data.openSeatingMode);
       }
     });
     return () => unsubscribe();
   }, []);
 
-  const handleTotalTablesChange = async (val: number) => {
-    setTotalTables(val);
-    if (db) {
-      await setDoc(doc(db, "settings", "salon"), { totalTables: val }, { merge: true });
-    }
-  };
+  // Compute total tables: (Capacity - HonorCapacity) / 10, between 4 and 26.
+  const totalTables = Math.max(4, Math.min(26, Math.ceil((eventCapacity - honorCapacity) / 10)));
 
   const handleHonorCapacityChange = async (val: number) => {
     setHonorCapacity(val);
@@ -114,11 +132,12 @@ export default function TableMap({ onBack }: TableMapProps) {
     ? [950, 1650, 2350] 
     : [900, 1600, 2300];
 
-  // Fixed Balcony tables configuration
+  // Fixed Balcony tables configuration (enabled conditionally)
+  const enableBalcony = currentEvent?.enableBalcony || false;
   const balconyTables = [
-    { id: "balcony-1", cx: 300, cy: 107, tableNumber: 101, displayNum: 1 },
-    { id: "balcony-2", cx: 600, cy: 107, tableNumber: 102, displayNum: 2 },
-    { id: "balcony-3", cx: 900, cy: 107, tableNumber: 103, displayNum: 3 },
+    { id: "balcony-1", cx: 300, cy: 107, tableNumber: totalTables + 1, displayNum: totalTables + 1 },
+    { id: "balcony-2", cx: 600, cy: 107, tableNumber: totalTables + 2, displayNum: totalTables + 2 },
+    { id: "balcony-3", cx: 900, cy: 107, tableNumber: totalTables + 3, displayNum: totalTables + 3 },
   ];
 
   // Generate Table Coordinates dynamically based on state
@@ -267,15 +286,21 @@ export default function TableMap({ onBack }: TableMapProps) {
             <label className="text-[9px] text-gray-500 font-bold uppercase block mb-1">
               Evento Seleccionado
             </label>
-            <select
-              value={selectedEventId}
-              onChange={(e) => setSelectedEventId(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-gold/30 font-medium"
-            >
-              {events.map((ev) => (
-                <option key={ev.id} value={ev.id}>{ev.title}</option>
-              ))}
-            </select>
+            {user?.role === "client" ? (
+              <span className="text-xs font-semibold text-white block py-1.5 px-1 truncate">
+                {events.find(e => e.id === selectedEventId)?.title || "Gran Gala SocialesVIP"}
+              </span>
+            ) : (
+              <select
+                value={selectedEventId}
+                onChange={(e) => setSelectedEventId(e.target.value)}
+                className="w-full bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-gold/30 font-medium"
+              >
+                {events.map((ev) => (
+                  <option key={ev.id} value={ev.id}>{ev.title}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* User Guide Card */}
@@ -297,22 +322,23 @@ export default function TableMap({ onBack }: TableMapProps) {
               <span className="text-[10px] text-gold tracking-widest font-semibold uppercase block mb-1">
                 Aforo Salón General
               </span>
-              <label className="text-[11px] text-gray-400 font-light block mb-2">
-                Cantidad de Mesas: <span className="text-white font-bold text-xs">{totalTables}</span>
-              </label>
-              <input
-                type="range"
-                min="4"
-                max="26"
-                step="1"
-                value={totalTables}
-                onChange={(e) => handleTotalTablesChange(Number(e.target.value))}
-                className="w-full accent-gold bg-white/10 rounded-lg appearance-none h-1 cursor-pointer"
-              />
-              <div className="flex justify-between text-[9px] text-gray-500 mt-1 font-mono">
-                <span>4 Mesas</span>
-                <span>26 Mesas</span>
+              <div className="bg-white/5 border border-white/10 rounded-lg p-2.5 mt-2 space-y-1.5 text-[11px] font-light text-gray-400">
+                <div className="flex justify-between">
+                  <span>Capacidad Evento:</span>
+                  <span className="text-white font-bold">{eventCapacity} pax</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Mesa de Honor:</span>
+                  <span className="text-white font-bold">{honorCapacity} pax</span>
+                </div>
+                <div className="flex justify-between border-t border-white/5 pt-1.5 text-xs">
+                  <span className="text-gold font-medium">Mesas Requeridas (10p):</span>
+                  <span className="text-gold font-extrabold">{totalTables} Mesas</span>
+                </div>
               </div>
+              <p className="text-[8px] text-gray-500 italic mt-2 text-center leading-relaxed">
+                * El número de mesas se calcula automáticamente según la capacidad contratada.
+              </p>
             </div>
 
             <div className="border-t border-white/5 pt-3">
@@ -320,7 +346,7 @@ export default function TableMap({ onBack }: TableMapProps) {
                 Aforo Mesa de Honor
               </span>
               <label className="text-[11px] text-gray-400 font-light block mb-2">
-                Invitados: <span className="text-white font-bold text-xs">{honorCapacity}</span>
+                Capacidad Honor: <span className="text-white font-bold text-xs">{honorCapacity} pax</span>
               </label>
               <input
                 type="range"
@@ -515,132 +541,135 @@ export default function TableMap({ onBack }: TableMapProps) {
             <rect width="100%" height="100%" fill="url(#grid)" />
 
             {/* Zona de Balcón - Delineación Visual */}
-            <g>
-              {/* Dotted border line marking the Balcony area */}
-              <line
-                x1="50"
-                y1="214"
-                x2="1150"
-                y2="214"
-                className="stroke-gold/20 stroke-[2] stroke-dasharray-[6,6]"
-              />
-              <rect
-                x="500"
-                y="214"
-                width="200"
-                height="36"
-                rx="4"
-                className="fill-obsidian stroke-gold/20 stroke-[1]"
-              />
-              <text
-                x="600"
-                y="236"
-                textAnchor="middle"
-                className="fill-gold font-semibold tracking-[0.3em] text-[10px] uppercase"
-              >
-                ZONA BALCÓN
-              </text>
-            </g>
-
-            {/* Renderizar 3 Mesas de Balcón Fijas */}
-            {balconyTables.map((table) => {
-              const tableRadius = 60;
-              const chairsCount = 10;
-              const chairRadius = 14;
-              const placementRadius = 88;
-
-              const chairs: { cx: number; cy: number; key: string }[] = [];
-              for (let j = 0; j < chairsCount; j++) {
-                const angle = (j * 2 * Math.PI) / chairsCount;
-                chairs.push({
-                  cx: table.cx + placementRadius * Math.cos(angle),
-                  cy: table.cy + placementRadius * Math.sin(angle),
-                  key: `${table.tableNumber}-${j}`,
-                });
-              }
-
-              return (
-                <g 
-                  key={table.id} 
-                  className="group/table"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => handleTableDrop(table.tableNumber)}
-                  onClick={() => handleTableClick(table.tableNumber)}
+            {/* Seccion Balcon (Habilitada Dinamicamente) */}
+            {enableBalcony && (
+              <>
+                {/* Dotted border line marking the Balcony area */}
+                <line
+                  x1="50"
+                  y1="214"
+                  x2="1150"
+                  y2="214"
+                  className="stroke-gold/20 stroke-[2] stroke-dasharray-[6,6]"
+                />
+                <rect
+                  x="500"
+                  y="214"
+                  width="200"
+                  height="36"
+                  rx="4"
+                  className="fill-obsidian stroke-gold/20 stroke-[1]"
+                />
+                <text
+                  x="600"
+                  y="236"
+                  textAnchor="middle"
+                  className="fill-gold font-semibold tracking-[0.3em] text-[10px] uppercase"
                 >
-                  <circle
-                    cx={table.cx}
-                    cy={table.cy}
-                    r={tableRadius + 15}
-                    className="fill-transparent stroke-white/[0.02] stroke-[1]"
-                  />
+                  ZONA BALCÓN
+                </text>
 
-                  {chairs.map((chair, seatIndex) => {
-                    const assigned = assignments[chair.key];
+                {/* Renderizar 3 Mesas de Balcón Fijas */}
+                {balconyTables.map((table) => {
+                  const tableRadius = 60;
+                  const chairsCount = 10;
+                  const chairRadius = 14;
+                  const placementRadius = 88;
 
-                    return (
-                      <g
-                        key={chair.key}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSeatClick(table.tableNumber, seatIndex);
-                        }}
-                        className="cursor-pointer"
-                      >
-                        <circle
-                          cx={chair.cx}
-                          cy={chair.cy}
-                          r={chairRadius}
-                          className={`transition-all duration-300 ${
-                            assigned
-                              ? "fill-gold stroke-gold-hover stroke-[2]"
-                              : "fill-obsidian stroke-gray-700 hover:stroke-gold/70 stroke-[1]"
-                          }`}
-                        />
-                        {assigned && (
-                          <text
-                            x={chair.cx}
-                            y={chair.cy + 3}
-                            textAnchor="middle"
-                            className="fill-obsidian font-bold text-[8px] pointer-events-none"
+                  const chairs: { cx: number; cy: number; key: string }[] = [];
+                  for (let j = 0; j < chairsCount; j++) {
+                    const angle = (j * 2 * Math.PI) / chairsCount;
+                    chairs.push({
+                      cx: table.cx + placementRadius * Math.cos(angle),
+                      cy: table.cy + placementRadius * Math.sin(angle),
+                      key: `${table.tableNumber}-${j}`,
+                    });
+                  }
+
+                  return (
+                    <g 
+                      key={table.id} 
+                      className="group/table"
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => handleTableDrop(table.tableNumber)}
+                      onClick={() => handleTableClick(table.tableNumber)}
+                    >
+                      <circle
+                        cx={table.cx}
+                        cy={table.cy}
+                        r={tableRadius + 15}
+                        className="fill-transparent stroke-white/[0.02] stroke-[1]"
+                      />
+
+                      {chairs.map((chair, seatIndex) => {
+                        const assigned = assignments[chair.key];
+
+                        return (
+                          <g
+                            key={chair.key}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSeatClick(table.tableNumber, seatIndex);
+                            }}
+                            className="cursor-pointer"
                           >
-                            {assigned.name.substring(0, 2).toUpperCase()}
-                          </text>
-                        )}
-                        <title>
-                          {assigned
-                            ? `Ocupado por: ${assigned.name}`
-                            : `Balcón ${table.displayNum} - Silla ${seatIndex + 1}`}
-                        </title>
-                      </g>
-                    );
-                  })}
+                            <circle
+                              cx={chair.cx}
+                              cy={chair.cy}
+                              r={chairRadius}
+                              className={`transition-all duration-300 ${
+                                assigned
+                                  ? "fill-gold stroke-gold-hover stroke-[2]"
+                                  : "fill-obsidian stroke-gray-700 hover:stroke-gold/70 stroke-[1]"
+                              }`}
+                            />
+                            {assigned && (
+                              <text
+                                x={chair.cx}
+                                y={chair.cy + 3}
+                                textAnchor="middle"
+                                className="fill-obsidian font-bold text-[8px] pointer-events-none"
+                              >
+                                {assigned.name.substring(0, 2).toUpperCase()}
+                              </text>
+                            )}
+                            <title>
+                              {assigned
+                                ? `Ocupado por: ${assigned.name}`
+                                : `Balcón ${table.displayNum} - Silla ${seatIndex + 1}`}
+                            </title>
+                          </g>
+                        );
+                      })}
 
-                  <circle
-                    cx={table.cx}
-                    cy={table.cy}
-                    r={tableRadius}
-                    className="fill-dark-gray stroke-gold/40 stroke-[2] shadow-lg group-hover/table:stroke-gold transition-colors duration-300"
-                  />
+                      <circle
+                        cx={table.cx}
+                        cy={table.cy}
+                        r={tableRadius}
+                        className="fill-dark-gray stroke-gold/40 stroke-[2] shadow-lg group-hover/table:stroke-gold transition-colors duration-300"
+                      />
 
-                  <text
-                    x={table.cx}
-                    y={table.cy - 5}
-                    textAnchor="middle"
-                    className="fill-gold font-semibold text-xs tracking-wider"
-                  >
-                    BALCÓN
-                  </text>
-                  <text
-                    x={table.cx}
-                    y={table.cy + 15}
-                    textAnchor="middle"
-                    className="fill-white font-bold text-lg"
-                  >
-                    {table.displayNum}
-                  </text>
-                </g>
-              );
-            })}
+                      <text
+                        x={table.cx}
+                        y={table.cy - 5}
+                        textAnchor="middle"
+                        className="fill-gold font-semibold text-xs tracking-wider"
+                      >
+                        BALCÓN
+                      </text>
+                      <text
+                        x={table.cx}
+                        y={table.cy + 15}
+                        textAnchor="middle"
+                        className="fill-white font-bold text-lg"
+                      >
+                        {table.displayNum}
+                      </text>
+                    </g>
+                  );
+                })}
+              </>
+            )}
 
             {/* 1. Cabecera (Mesa Principal de Honor - Dinámica 1 o 2 Mesas en Vertical con Distribución Perimetral) */}
             {(() => {

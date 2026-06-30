@@ -38,6 +38,26 @@ export default function CalendarDashboard() {
   const [currentDate, setCurrentDate] = useState<Date>(new Date(2026, 5, 30)); // Set default to June 2026
   const [selectedDateStr, setSelectedDateStr] = useState<string>("2026-06-20");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [preReserveDraft, setPreReserveDraft] = useState<any>(null);
+
+  useEffect(() => {
+    const raw = localStorage.getItem("svip_pre_reserve_draft");
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        setPreReserveDraft(parsed);
+        if (parsed.date) {
+          setSelectedDateStr(parsed.date);
+          const parts = parsed.date.split("-");
+          if (parts.length === 3) {
+            setCurrentDate(new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])));
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
 
   // Reactive state from Firestore
   const [reservations, setReservations] = useState<EventReservation[]>([]);
@@ -49,6 +69,22 @@ export default function CalendarDashboard() {
   const [newTimeEnd, setNewTimeEnd] = useState("02:00");
   const [newGuests, setNewGuests] = useState("150");
   const [newClient, setNewClient] = useState("");
+
+  const safeFormatDate = (dateVal: any): string => {
+    if (!dateVal) return "";
+    if (typeof dateVal === "string") return dateVal;
+    if (dateVal && typeof dateVal === "object" && typeof dateVal.toDate === "function") {
+      try {
+        return dateVal.toDate().toISOString().split("T")[0];
+      } catch (e) {}
+    }
+    if (dateVal && typeof dateVal === "object" && dateVal.seconds !== undefined) {
+      try {
+        return new Date(dateVal.seconds * 1000).toISOString().split("T")[0];
+      } catch (e) {}
+    }
+    return String(dateVal);
+  };
 
   // 1. Subscribe to Firestore events collection
   useEffect(() => {
@@ -63,7 +99,7 @@ export default function CalendarDashboard() {
           id: doc.id,
           title: data.title || "",
           type: data.type || "Otro",
-          date: data.date || "",
+          date: safeFormatDate(data.date),
           timeStart: data.timeStart || "",
           timeEnd: data.timeEnd || "",
           guestsCount: data.guestsCount || 150,
@@ -359,6 +395,100 @@ export default function CalendarDashboard() {
           </div>
 
           <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+            {preReserveDraft && (
+              <div className="p-4 rounded-xl bg-gold/10 border border-gold/30 space-y-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-[8px] font-semibold bg-gold text-obsidian px-2 py-0.5 rounded font-mono uppercase tracking-wider">
+                      PRE-RESERVA PENDIENTE
+                    </span>
+                    <h4 className="text-xs font-semibold text-white mt-1.5">
+                      Confirmar Fecha para: {preReserveDraft.clientName}
+                    </h4>
+                  </div>
+                </div>
+
+                <div className="text-[10px] text-gray-300 space-y-1 bg-black/45 p-2.5 rounded-lg border border-white/5 font-mono">
+                  <div>WhatsApp: {preReserveDraft.phone || "N/A"}</div>
+                  <div>Aforo: {preReserveDraft.guestsCount} pax</div>
+                  <div>Paquete: {preReserveDraft.packageName}</div>
+                  <div>Fecha Propuesta: {preReserveDraft.date}</div>
+                </div>
+
+                <div className="text-[9px] text-amber-400 font-light flex gap-1 items-start leading-tight">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                  <span>
+                    <strong>Condición:</strong> Si el cliente no formaliza la reserva con anticipo, perderá la fecha del apartado.
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    onClick={async () => {
+                      if (!db) return;
+                      // Check date availability
+                      const isOccupied = reservations.some(res => res.date === selectedDateStr);
+                      if (isOccupied) {
+                        alert(`Atención: Ya hay un evento agendado para la fecha ${selectedDateStr}. Selecciona otro día en el calendario.`);
+                        return;
+                      }
+
+                      if (window.confirm(`¿Confirmar Pre-reserva para el día ${selectedDateStr}?`)) {
+                        try {
+                          const eventId = `event-${Date.now()}`;
+                          const newEvent = {
+                            title: `Evento de ${preReserveDraft.clientName}`,
+                            type: "Boda",
+                            date: selectedDateStr,
+                            timeStart: "17:00",
+                            timeEnd: "02:00",
+                            guestsCount: preReserveDraft.guestsCount,
+                            clientName: preReserveDraft.clientName,
+                            phone: preReserveDraft.phone,
+                            status: "pre-reserva",
+                            paidAmount: 0,
+                            totalCost: preReserveDraft.guestsCount * preReserveDraft.packagePrice,
+                            enableBalcony: false,
+                            honorCapacity: 5,
+                            guests: [],
+                            timeline: []
+                          };
+
+                          await setDoc(doc(db, "events", eventId), newEvent);
+                          
+                          // Mark quote as approved
+                          await setDoc(doc(db, "quotes", preReserveDraft.quoteId), { status: "aprobada" }, { merge: true });
+
+                          // Clean up localStorage and state
+                          localStorage.removeItem("svip_pre_reserve_draft");
+                          setPreReserveDraft(null);
+
+                          alert(`Pre-reserva creada con éxito para el día ${selectedDateStr}.`);
+                        } catch (err) {
+                          console.error(err);
+                          alert("Error al confirmar la Pre-reserva.");
+                        }
+                      }
+                    }}
+                    className="w-full py-1.5 bg-gold hover:bg-gold-hover text-obsidian rounded-lg text-[10px] font-bold uppercase transition-colors"
+                  >
+                    Confirmar
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm("¿Seguro que deseas descartar este borrador de pre-reserva?")) {
+                        localStorage.removeItem("svip_pre_reserve_draft");
+                        setPreReserveDraft(null);
+                      }
+                    }}
+                    className="w-full py-1.5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg text-[10px] uppercase transition-colors"
+                  >
+                    Descartar
+                  </button>
+                </div>
+              </div>
+            )}
+
             {selectedDayEvents.map((res) => (
               <div 
                 key={res.id}

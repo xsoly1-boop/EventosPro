@@ -16,7 +16,10 @@ import {
   Check,
   X,
   Pencil,
-  Lock
+  Lock,
+  QrCode,
+  Copy,
+  RefreshCw
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
@@ -26,7 +29,8 @@ import {
   setDoc, 
   updateDoc, 
   deleteDoc, 
-  onSnapshot 
+  onSnapshot,
+  getDocs
 } from "firebase/firestore";
 
 interface StaffMember {
@@ -40,7 +44,42 @@ interface StaffMember {
 
 export default function SettingsManager() {
   const { user } = useAuth();
-  const [activeSubTab, setActiveSubTab] = useState<"staff" | "salon" | "roles">("staff");
+  const [activeSubTab, setActiveSubTab] = useState<"staff" | "salon" | "roles" | "catalog" | "scanner">("staff");
+
+  // Scanner Codes State
+  const [scannerCodes, setScannerCodes] = useState<{ id: string; code: string; label: string; createdBy: string; createdAt: string }[]>([]);
+  const [newCodeLabel, setNewCodeLabel] = useState("");
+
+  useEffect(() => {
+    if (!db) return;
+    const unsub = onSnapshot(collection(db, "scanner_codes"), (snap) => {
+      const list: any[] = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      list.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+      setScannerCodes(list);
+    });
+    return () => unsub();
+  }, []);
+
+  const generateScannerCode = async () => {
+    if (!db) return;
+    const code = String(Math.floor(1000 + Math.random() * 9000));
+    const id = `sc-${Date.now()}`;
+    await setDoc(doc(db, "scanner_codes", id), {
+      code,
+      label: newCodeLabel.trim() || "Sin etiqueta",
+      createdBy: user?.role || "admin",
+      createdAt: new Date().toISOString()
+    });
+    setNewCodeLabel("");
+  };
+
+  const deleteScannerCode = async (id: string) => {
+    if (!db) return;
+    if (window.confirm("¿Eliminar este código de autorización? Los operadores que lo usen perderán acceso.")) {
+      await deleteDoc(doc(db, "scanner_codes", id));
+    }
+  };
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
   
   const isGlobalEditable = user?.role === "admin" || user?.role === "dueño";
@@ -84,6 +123,22 @@ export default function SettingsManager() {
   const [offsetValFotografo, setOffsetValFotografo] = useState(1);
   const [offsetUnitFotografo, setOffsetUnitFotografo] = useState<"horas" | "minutos">("horas");
 
+  // Catalog States
+  const [packages, setPackages] = useState<{ id: string; name: string; price: number; description: string }[]>([]);
+  const [menus, setMenus] = useState<{ id: string; label: string; items: string }[]>([]);
+  const [catalogServices, setCatalogServices] = useState<{ id: string; name: string; price: number }[]>([]);
+
+  // Add Item Form states
+  const [newPkgName, setNewPkgName] = useState("");
+  const [newPkgPrice, setNewPkgPrice] = useState("");
+  const [newPkgDesc, setNewPkgDesc] = useState("");
+
+  const [newMenuLabel, setNewMenuLabel] = useState("");
+  const [newMenuItems, setNewMenuItems] = useState("");
+
+  const [newSvcName, setNewSvcName] = useState("");
+  const [newSvcPrice, setNewSvcPrice] = useState("");
+
   // Editable Physical Salon Limits (Only by dueño / admin)
   const [salonWidth, setSalonWidth] = useState(12);
   const [salonLength, setSalonLength] = useState(30);
@@ -91,37 +146,42 @@ export default function SettingsManager() {
   const [balconyTablesCount, setBalconyTablesCount] = useState(3);
   const [balconyMarginPx, setBalconyMarginPx] = useState(5);
 
-  // Role permissions state
   const [rolePermissions, setRolePermissions] = useState([
     { 
       role: "admin", 
       label: "Admin Master", 
       desc: "Acceso total a código, bases de datos y configuraciones.", 
-      modules: { dashboard: true, mesas: true, calendario: true, cotizaciones: true, finanzas: true, cronograma: true, escáner: true, config: true } 
+      modules: { dashboard: true, mesas: true, calendario: true, cotizaciones: true, finanzas: true, cronograma: true, escáner: true, eventos: true } 
     },
     { 
       role: "dueño", 
       label: "Dueño / Propietario", 
       desc: "Acceso total al negocio, finanzas, métricas y gestión de toda la plantilla.", 
-      modules: { dashboard: true, mesas: true, calendario: true, cotizaciones: true, finanzas: true, cronograma: true, escáner: true, config: true } 
+      modules: { dashboard: true, mesas: true, calendario: true, cotizaciones: true, finanzas: true, cronograma: true, escáner: true, eventos: true } 
     },
     { 
       role: "gerencia", 
       label: "Gerencia", 
       desc: "Permisos altos. Crea eventos, cronograma y lanza convocatoria. Sin finanzas.", 
-      modules: { dashboard: true, mesas: true, calendario: true, cotizaciones: true, finanzas: false, cronograma: true, escáner: true, config: false } 
+      modules: { dashboard: true, mesas: true, calendario: true, cotizaciones: true, finanzas: false, cronograma: true, escáner: true, eventos: true } 
     },
     { 
       role: "host", 
       label: "Host / Hostess", 
       desc: "Área de recepción: lista de invitados, croquis, check-in y escáner QR.", 
-      modules: { dashboard: true, mesas: true, calendario: true, cotizaciones: false, finanzas: false, cronograma: false, escáner: true, config: false } 
+      modules: { dashboard: true, mesas: true, calendario: true, cotizaciones: false, finanzas: false, cronograma: false, escáner: true, eventos: false } 
     },
     { 
       role: "staff", 
       label: "Personal (Staff)", 
       desc: "Solo lectura. Consulta de eventos asignados y horarios de llegada.", 
-      modules: { dashboard: true, mesas: false, calendario: true, cotizaciones: false, font_mono: false, finanzas: false, cronograma: true, escáner: false, config: false } 
+      modules: { dashboard: true, mesas: false, calendario: true, cotizaciones: false, finanzas: false, cronograma: true, escáner: false, eventos: false } 
+    },
+    { 
+      role: "client", 
+      label: "Anfitrión / Cliente", 
+      desc: "Acceso limitado a su propio evento. Puede ocultar o mostrar módulos como el croquis o calendario.", 
+      modules: { dashboard: true, mesas: true, calendario: true, cotizaciones: false, finanzas: false, cronograma: false, escáner: false, eventos: false } 
     },
   ]);
   const [isRolesSaved, setIsRolesSaved] = useState(false);
@@ -217,7 +277,16 @@ export default function SettingsManager() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data.permissions) {
-          setRolePermissions(data.permissions);
+          const loaded: any[] = [...data.permissions];
+          if (!loaded.some(r => r.role === "client")) {
+            loaded.push({ 
+              role: "client", 
+              label: "Anfitrión / Cliente", 
+              desc: "Acceso limitado a su propio evento. Puede ocultar o mostrar módulos como el croquis o calendario.", 
+              modules: { dashboard: true, mesas: true, calendario: true, cotizaciones: false, finanzas: false, cronograma: false, escáner: false, eventos: false } 
+            });
+          }
+          setRolePermissions(loaded);
         }
       }
     });
@@ -228,6 +297,148 @@ export default function SettingsManager() {
       unsubscribeRoles();
     };
   }, [db]);
+
+  // Catalog listeners & auto-seeding
+  useEffect(() => {
+    if (!db) return;
+
+    // Listen to packages
+    const unsubPkgs = onSnapshot(collection(db, "catalog_packages"), (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach(docSnap => list.push({ id: docSnap.id, ...docSnap.data() }));
+      setPackages(list);
+    });
+
+    // Listen to menus
+    const unsubMenus = onSnapshot(collection(db, "catalog_menus"), (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach(docSnap => list.push({ id: docSnap.id, ...docSnap.data() }));
+      setMenus(list);
+    });
+
+    // Listen to services
+    const unsubServices = onSnapshot(collection(db, "catalog_services"), (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach(docSnap => list.push({ id: docSnap.id, ...docSnap.data() }));
+      setCatalogServices(list);
+    });
+
+    // Seeding Catalog collections if empty
+    getDocs(collection(db, "catalog_packages")).then((snap) => {
+      if (snap.empty) {
+        const defaults = [
+          { name: "Paquete Básico Imperial", price: 35000, description: "Incluye Renta de Salón por 5 hrs, Mobiliario estándar, Limpieza, Luz de cortesía y Coordinador básico." },
+          { name: "Paquete Premium Imperial", price: 60000, description: "Incluye Renta, Banquete clásico, Refrescos, Hielo, DJ Premium Pro, Pista LED, Animación y Hostess." },
+          { name: "Paquete VIP Imperial", price: 95000, description: "Todo incluido: Banquete Gourmet 3 tiempos, Grupo Musical en Vivo, Cabina 360, Pirotecnia Fría y Valet Parking." }
+        ];
+        defaults.forEach(async (p, idx) => {
+          await setDoc(doc(db, "catalog_packages", `pkg-${idx}`), p);
+        });
+      }
+    });
+
+    getDocs(collection(db, "catalog_menus")).then((snap) => {
+      if (snap.empty) {
+        const defaults = [
+          { label: "Banquete Clásico VIP", items: "Espagueti al burro, lomo adobado, papas al gratin" },
+          { label: "Menú Gourmet Tres Tiempos", items: "Ensalada César con pollo, pechuga rellena con puré, postre tres leches" },
+          { label: "Cena de Gala Internacional", items: "Crema de elote, lomo en salsa de ciruela, volcán de chocolate" },
+          { label: "Opción Saludable / Vegetariano", items: "Ensalada de espinacas y fresas, lasaña de verduras, brocheta de frutas" }
+        ];
+        defaults.forEach(async (m, idx) => {
+          await setDoc(doc(db, "catalog_menus", `menu-${idx}`), m);
+        });
+      }
+    });
+
+    getDocs(collection(db, "catalog_services")).then((snap) => {
+      if (snap.empty) {
+        const defaults = [
+          { name: "DJ Premium & Cabina Pro", price: 1200 },
+          { name: "Banquete Gourmet 3 tiempos", price: 2500 },
+          { name: "Mesa de Dulces Temática", price: 450 },
+          { name: "Personal de Animación & Hostess", price: 600 },
+          { name: "Servicio de Valet Parking Pro", price: 350 },
+          { name: "Pista de Baile LED Extra", price: 800 },
+          { name: "Fotografía & Video Digital", price: 950 },
+          { name: "Grupo Musical en Vivo Pro", price: 4500 },
+          { name: "Banda Sinaloense Premium", price: 5500 },
+          { name: "Solista Acústico Saxofón", price: 1800 },
+          { name: "Show de Pirotecnia Fria & Laser", price: 2200 },
+          { name: "Cabina Giratoria 360 Video", price: 1500 }
+        ];
+        defaults.forEach(async (s, idx) => {
+          await setDoc(doc(db, "catalog_services", `svc-${idx}`), s);
+        });
+      }
+    });
+
+    return () => {
+      unsubPkgs();
+      unsubMenus();
+      unsubServices();
+    };
+  }, [db]);
+
+  // Catalog Add/Delete handlers
+  const handleAddPackage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPkgName || !newPkgPrice || !db) return;
+    const id = `pkg-${Date.now()}`;
+    await setDoc(doc(db, "catalog_packages", id), {
+      name: newPkgName,
+      price: Number(newPkgPrice),
+      description: newPkgDesc
+    });
+    setNewPkgName("");
+    setNewPkgPrice("");
+    setNewPkgDesc("");
+  };
+
+  const handleDeletePackage = async (id: string) => {
+    if (!db) return;
+    if (window.confirm("¿Seguro que deseas eliminar este paquete del catálogo?")) {
+      await deleteDoc(doc(db, "catalog_packages", id));
+    }
+  };
+
+  const handleAddMenu = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMenuLabel || !newMenuItems || !db) return;
+    const id = `menu-${Date.now()}`;
+    await setDoc(doc(db, "catalog_menus", id), {
+      label: newMenuLabel,
+      items: newMenuItems
+    });
+    setNewMenuLabel("");
+    setNewMenuItems("");
+  };
+
+  const handleDeleteMenu = async (id: string) => {
+    if (!db) return;
+    if (window.confirm("¿Seguro que deseas eliminar este menú del catálogo?")) {
+      await deleteDoc(doc(db, "catalog_menus", id));
+    }
+  };
+
+  const handleAddService = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSvcName || !newSvcPrice || !db) return;
+    const id = `svc-${Date.now()}`;
+    await setDoc(doc(db, "catalog_services", id), {
+      name: newSvcName,
+      price: Number(newSvcPrice)
+    });
+    setNewSvcName("");
+    setNewSvcPrice("");
+  };
+
+  const handleDeleteService = async (id: string) => {
+    if (!db) return;
+    if (window.confirm("¿Seguro que deseas eliminar este servicio del catálogo?")) {
+      await deleteDoc(doc(db, "catalog_services", id));
+    }
+  };
 
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -385,6 +596,28 @@ export default function SettingsManager() {
           >
             <Sliders className="h-3.5 w-3.5" />
             Configuración del Salón
+          </button>
+          <button
+            onClick={() => setActiveSubTab("catalog")}
+            className={`py-1.5 px-4 rounded-md text-xs tracking-wide transition-all duration-300 flex items-center gap-2 ${
+              activeSubTab === "catalog"
+                ? "bg-gold text-obsidian font-semibold"
+                : "text-gray-400 hover:text-white"
+            }`}
+          >
+            <Building className="h-3.5 w-3.5" />
+            Catálogo de Servicios
+          </button>
+          <button
+            onClick={() => setActiveSubTab("scanner")}
+            className={`py-1.5 px-4 rounded-md text-xs tracking-wide transition-all duration-300 flex items-center gap-2 ${
+              activeSubTab === "scanner"
+                ? "bg-gold text-obsidian font-semibold"
+                : "text-gray-400 hover:text-white"
+            }`}
+          >
+            <QrCode className="h-3.5 w-3.5" />
+            Códigos de Escáner
           </button>
         </div>
       </div>
@@ -605,7 +838,7 @@ export default function SettingsManager() {
                   <th className="py-3 px-2 text-center">Finanzas</th>
                   <th className="py-3 px-2 text-center">Cronograma</th>
                   <th className="py-3 px-2 text-center">Escáner QR</th>
-                  <th className="py-3 px-2 text-center">Config System</th>
+                  <th className="py-3 px-2 text-center">Gestión Eventos</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -645,6 +878,229 @@ export default function SettingsManager() {
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Catalog Customization Tab */}
+      {activeSubTab === "catalog" && (
+        <div className="space-y-6">
+          {/* 1. Paquetes */}
+          <div className="glass-dark rounded-2xl p-6 border border-white/5 space-y-4">
+            <div className="border-b border-white/5 pb-3">
+              <span className="text-[10px] text-gold tracking-widest font-semibold uppercase block mb-1">
+                Catálogo de Ofertas
+              </span>
+              <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
+                1. Paquetes de Evento (Básico, Premium, VIP)
+              </h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* List */}
+              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                {packages.map((pkg) => (
+                  <div key={pkg.id} className="glass p-4 rounded-xl border border-white/5 flex justify-between items-start gap-4">
+                    <div>
+                      <h4 className="text-xs font-semibold text-white">{pkg.name}</h4>
+                      <p className="text-[10px] text-gray-400 font-light mt-1 leading-relaxed">{pkg.description}</p>
+                      <span className="text-[11px] font-mono text-gold font-bold block mt-2">${pkg.price.toLocaleString()}</span>
+                    </div>
+                    <button
+                      onClick={() => handleDeletePackage(pkg.id)}
+                      className="p-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg shrink-0"
+                      title="Eliminar Paquete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+                {packages.length === 0 && (
+                  <p className="text-xs text-gray-500 italic">No hay paquetes registrados.</p>
+                )}
+              </div>
+
+              {/* Form */}
+              <form onSubmit={handleAddPackage} className="glass p-4 rounded-xl border border-white/5 space-y-3">
+                <span className="text-[9px] text-gold tracking-widest font-semibold uppercase block">
+                  Agregar Paquete
+                </span>
+                <div>
+                  <label className="text-[9px] text-gray-400 font-light uppercase block mb-1">Nombre del Paquete</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. Paquete Ultra VIP"
+                    value={newPkgName}
+                    onChange={(e) => setNewPkgName(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-gold/30"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] text-gray-400 font-light uppercase block mb-1">Precio Base ($)</label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="Ej. 120000"
+                    value={newPkgPrice}
+                    onChange={(e) => setNewPkgPrice(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] text-gray-400 font-light uppercase block mb-1">Descripción de Incluidos</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Ej. Renta completa, Dj pro, Banquete 4 tiempos..."
+                    value={newPkgDesc}
+                    onChange={(e) => setNewPkgDesc(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-gold/30 resize-none font-light"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-2 bg-gold hover:bg-gold-hover text-obsidian rounded-lg text-xs font-bold uppercase tracking-wider transition-colors"
+                >
+                  Registrar Paquete
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* 2. Menús de Cocina */}
+          <div className="glass-dark rounded-2xl p-6 border border-white/5 space-y-4">
+            <div className="border-b border-white/5 pb-3">
+              <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
+                2. Menús de Cocina / Banquetes
+              </h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* List */}
+              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                {menus.map((m) => (
+                  <div key={m.id} className="glass p-4 rounded-xl border border-white/5 flex justify-between items-start gap-4">
+                    <div>
+                      <h4 className="text-xs font-semibold text-white">{m.label}</h4>
+                      <p className="text-[10px] text-gray-400 font-serif italic mt-1 leading-relaxed">"{m.items}"</p>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteMenu(m.id)}
+                      className="p-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg shrink-0"
+                      title="Eliminar Menú"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+                {menus.length === 0 && (
+                  <p className="text-xs text-gray-500 italic">No hay menús registrados.</p>
+                )}
+              </div>
+
+              {/* Form */}
+              <form onSubmit={handleAddMenu} className="glass p-4 rounded-xl border border-white/5 space-y-3">
+                <span className="text-[9px] text-gold tracking-widest font-semibold uppercase block">
+                  Agregar Menú
+                </span>
+                <div>
+                  <label className="text-[9px] text-gray-400 font-light uppercase block mb-1">Etiqueta del Menú</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. Banquete Mexicano Tradicional"
+                    value={newMenuLabel}
+                    onChange={(e) => setNewMenuLabel(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-gold/30"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] text-gray-400 font-light uppercase block mb-1">Descripción de Platillos</label>
+                  <textarea
+                    rows={3}
+                    required
+                    placeholder="Ej. Consomé, Carnitas de cerdo con nopales, postre de cajeta..."
+                    value={newMenuItems}
+                    onChange={(e) => setNewMenuItems(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-gold/30 resize-none font-light"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-2 bg-gold hover:bg-gold-hover text-obsidian rounded-lg text-xs font-bold uppercase tracking-wider transition-colors"
+                >
+                  Registrar Menú
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* 3. Servicios y Adicionales */}
+          <div className="glass-dark rounded-2xl p-6 border border-white/5 space-y-4">
+            <div className="border-b border-white/5 pb-3">
+              <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
+                3. Servicios y Adicionales del Evento (Catálogo)
+              </h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* List */}
+              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                {catalogServices.map((svc) => (
+                  <div key={svc.id} className="glass p-4 rounded-xl border border-white/5 flex justify-between items-center gap-4">
+                    <div>
+                      <h4 className="text-xs font-semibold text-white">{svc.name}</h4>
+                      <span className="text-[11px] font-mono text-gold font-bold block mt-1">${svc.price.toLocaleString()}</span>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteService(svc.id)}
+                      className="p-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg shrink-0"
+                      title="Eliminar Servicio"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+                {catalogServices.length === 0 && (
+                  <p className="text-xs text-gray-500 italic">No hay servicios registrados.</p>
+                )}
+              </div>
+
+              {/* Form */}
+              <form onSubmit={handleAddService} className="glass p-4 rounded-xl border border-white/5 space-y-3">
+                <span className="text-[9px] text-gold tracking-widest font-semibold uppercase block">
+                  Agregar Servicio
+                </span>
+                <div>
+                  <label className="text-[9px] text-gray-400 font-light uppercase block mb-1">Nombre del Servicio</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. Barra Libre de Cocktails"
+                    value={newSvcName}
+                    onChange={(e) => setNewSvcName(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-gold/30"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] text-gray-400 font-light uppercase block mb-1">Precio Unitario ($)</label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="Ej. 1800"
+                    value={newSvcPrice}
+                    onChange={(e) => setNewSvcPrice(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-2 bg-gold hover:bg-gold-hover text-obsidian rounded-lg text-xs font-bold uppercase tracking-wider transition-colors"
+                >
+                  Registrar Servicio
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       )}
@@ -1204,6 +1660,97 @@ export default function SettingsManager() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Scanner Codes Management */}
+      {activeSubTab === "scanner" && (
+        <div className="space-y-6">
+          <div className="glass-dark rounded-2xl p-6 border border-white/5 space-y-5">
+            <div>
+              <span className="text-[10px] text-gold tracking-widest font-semibold uppercase block mb-1">
+                Módulo de Escáner QR
+              </span>
+              <h3 className="text-sm font-semibold text-white">Códigos de Autorización para Escáner</h3>
+              <p className="text-xs text-gray-400 font-light mt-1 max-w-xl">
+                Genera códigos de acceso permanentes para el módulo de Control de Aforo & Escáner QR. El módulo no requiere login completo — solo el código de autorización. Los códigos no caducan y solo pueden eliminarse desde aquí.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <label className="text-[10px] text-gray-400 font-light uppercase block">Etiqueta del Código (Opcional)</label>
+                <input
+                  type="text"
+                  value={newCodeLabel}
+                  onChange={(e) => setNewCodeLabel(e.target.value)}
+                  placeholder="Ej. Recepción Principal, Puerta Trasera..."
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30"
+                />
+                <button
+                  onClick={generateScannerCode}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-gold hover:bg-gold-hover text-obsidian rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Generar Nuevo Código
+                </button>
+              </div>
+
+              <div className="text-xs text-gray-500 font-light space-y-1.5 bg-white/[0.02] border border-white/5 rounded-xl p-4">
+                <p className="text-[10px] text-gold font-semibold uppercase tracking-wider mb-2">¿Cómo funciona?</p>
+                <p>• El módulo de escáner se abre desde el menú principal sin requerir login completo.</p>
+                <p>• El operador introduce el código en una pantalla de PIN para acceder.</p>
+                <p>• Los códigos no caducan. Elimínalos si ya no son necesarios.</p>
+                <p>• Solo admin, dueño y gerencia pueden generar o revocar códigos.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Codes Table */}
+          <div className="glass-dark rounded-2xl p-6 border border-white/5 space-y-4">
+            <h4 className="text-xs font-semibold text-white uppercase tracking-wider border-b border-white/5 pb-3">
+              Códigos Activos ({scannerCodes.length})
+            </h4>
+
+            {scannerCodes.length === 0 ? (
+              <div className="py-10 text-center text-gray-500 italic text-xs">
+                No hay códigos generados aún. Crea el primero arriba.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {scannerCodes.map((sc) => (
+                  <div key={sc.id} className="glass p-4 rounded-xl border border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-gold text-sm tracking-[0.2em]">{sc.code}</span>
+                        <button
+                          onClick={() => navigator.clipboard.writeText(sc.code).then(() => alert("Código copiado al portapapeles."))}
+                          className="p-1 rounded bg-gold/10 hover:bg-gold/20 text-gold transition-colors"
+                          title="Copiar código"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <div className="text-[10px] text-gray-400 space-x-3">
+                        <span className="font-light">{sc.label}</span>
+                        <span className="text-gray-600">|</span>
+                        <span className="text-gray-500">Generado por: {sc.createdBy}</span>
+                        <span className="text-gray-600">|</span>
+                        <span className="text-gray-500 font-mono">{sc.createdAt ? new Date(sc.createdAt).toLocaleDateString("es-MX") : ""}</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => deleteScannerCode(sc.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-950/20 hover:bg-red-950/40 border border-red-500/20 text-red-400 text-[10px] font-semibold uppercase transition-all shrink-0"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Revocar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -28,15 +28,59 @@ interface Quote {
   status: "borrador" | "enviada" | "aprobada";
 }
 
-export default function QuotesManager() {
+interface QuotesProps {
+  setActiveTab?: (tab: any) => void;
+}
+
+export default function QuotesManager({ setActiveTab }: QuotesProps) {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [activeQuoteId, setActiveQuoteId] = useState<string | null>(null);
+
+  const [dbServices, setDbServices] = useState<{ name: string; price: number }[]>([]);
+  const [dbPackages, setDbPackages] = useState<{ name: string; price: number; description: string }[]>([]);
+
+  useEffect(() => {
+    if (!db) return;
+    const unsubSvc = onSnapshot(collection(db, "catalog_services"), (snap) => {
+      const list: any[] = [];
+      snap.forEach(docSnap => list.push(docSnap.data()));
+      setDbServices(list);
+    });
+    const unsubPkgs = onSnapshot(collection(db, "catalog_packages"), (snap) => {
+      const list: any[] = [];
+      snap.forEach(docSnap => list.push(docSnap.data()));
+      setDbPackages(list);
+    });
+    return () => {
+      unsubSvc();
+      unsubPkgs();
+    };
+  }, []);
+
   const [clientName, setClientName] = useState("");
   const [guestsCount, setGuestsCount] = useState(150);
+  const [phone, setPhone] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [items, setItems] = useState<QuoteItem[]>([]);
   const [newItemName, setNewItemName] = useState("");
   const [newItemPrice, setNewItemPrice] = useState(0);
   const [newItemQty, setNewItemQty] = useState(1);
+
+  const safeFormatDate = (dateVal: any): string => {
+    if (!dateVal) return "";
+    if (typeof dateVal === "string") return dateVal;
+    if (dateVal && typeof dateVal === "object" && typeof dateVal.toDate === "function") {
+      try {
+        return dateVal.toDate().toISOString().split("T")[0];
+      } catch (e) {}
+    }
+    if (dateVal && typeof dateVal === "object" && dateVal.seconds !== undefined) {
+      try {
+        return new Date(dateVal.seconds * 1000).toISOString().split("T")[0];
+      } catch (e) {}
+    }
+    return String(dateVal);
+  };
 
   // 1. Subscribe to Firestore Quotes Collection
   useEffect(() => {
@@ -45,15 +89,22 @@ export default function QuotesManager() {
     const quotesRef = collection(db, "quotes");
     const unsubscribe = onSnapshot(quotesRef, (snapshot) => {
       const quotesList: Quote[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
+      snapshot.forEach(async (docSnap) => {
+        const data = docSnap.data();
+        
+        // Auto-migration: clean up Servicio de Salón Base concept from database
+        if (data.items && data.items.some((it: any) => it.name === "Servicio de Salón Base")) {
+          const cleaned = data.items.filter((it: any) => it.name !== "Servicio de Salón Base");
+          await setDoc(docSnap.ref, { items: cleaned }, { merge: true });
+        }
+
         quotesList.push({
-          id: doc.id,
+          id: docSnap.id,
           clientName: data.clientName || "",
           phone: data.phone || "",
-          date: data.date || "",
+          date: safeFormatDate(data.date),
           guestsCount: data.guestsCount || 150,
-          items: data.items || [],
+          items: (data.items || []).filter((it: any) => it.name !== "Servicio de Salón Base"),
           status: data.status || "borrador",
         });
       });
@@ -122,9 +173,7 @@ export default function QuotesManager() {
       date: new Date().toISOString().split("T")[0],
       guestsCount: 150,
       status: "borrador",
-      items: [
-        { id: `i-${Date.now()}-1`, name: "Servicio de Salón Base", price: 20000, qty: 1 },
-      ],
+      items: [],
     };
     
     await setDoc(doc(db, "quotes", newId), {
@@ -143,6 +192,8 @@ export default function QuotesManager() {
   const loadQuoteData = (q: Quote) => {
     setClientName(q.clientName);
     setGuestsCount(q.guestsCount);
+    setPhone(q.phone || "");
+    setDate(safeFormatDate(q.date) || new Date().toISOString().split("T")[0]);
     setItems([...q.items]);
   };
 
@@ -172,6 +223,8 @@ export default function QuotesManager() {
     await setDoc(doc(db, "quotes", activeQuoteId), {
       clientName,
       guestsCount,
+      phone,
+      date,
       items,
     }, { merge: true });
     alert("Cotización guardada exitosamente en la base de datos.");
@@ -179,10 +232,40 @@ export default function QuotesManager() {
 
   const handleApproveQuote = async (id: string) => {
     if (!db) return;
-    await setDoc(doc(db, "quotes", id), {
-      status: "aprobada"
-    }, { merge: true });
-    alert("Cotización Aprobada en la base de datos. Se ha generado un nuevo Evento Reservado y credenciales para el cliente.");
+    try {
+      // 1. Set quote status to approved in Firestore
+      await setDoc(doc(db, "quotes", id), {
+        status: "aprobada"
+      }, { merge: true });
+
+      // 2. Extract base package details
+      const basePkgItem = items.find(it => it.id === "base-package");
+      const basePkgName = basePkgItem ? basePkgItem.name : "Paquete Básico Imperial";
+      const basePkgPrice = basePkgItem ? basePkgItem.price : 35000;
+
+      // 3. Save draft details to localStorage to pass to CalendarDashboard
+      const draft = {
+        quoteId: id,
+        clientName,
+        phone,
+        date,
+        guestsCount,
+        packageName: basePkgName,
+        packagePrice: basePkgPrice,
+        fixedServices: items.map(it => ({ name: it.name, price: it.price }))
+      };
+      localStorage.setItem("svip_pre_reserve_draft", JSON.stringify(draft));
+
+      alert("Cotización aprobada. A continuación serás redirigido al Calendario para verificar disponibilidad del día y registrar la Pre-reserva.");
+
+      // 4. Redirect to calendar tab
+      if (setActiveTab) {
+        setActiveTab("calendar");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error al aprobar la cotización.");
+    }
   };
 
   return (
@@ -281,7 +364,7 @@ export default function QuotesManager() {
             </div>
 
             {/* Inputs Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="text-xs text-gray-400 font-semibold uppercase block mb-1.5">
                   Nombre del Cliente
@@ -290,7 +373,7 @@ export default function QuotesManager() {
                   type="text"
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-lg bg-obsidian border border-gray-700 text-white focus:outline-none focus:border-gold text-sm"
+                  className="w-full px-4 py-2.5 rounded-lg bg-obsidian border border-gray-700 text-white focus:outline-none focus:border-gold text-xs"
                 />
               </div>
               <div>
@@ -300,10 +383,84 @@ export default function QuotesManager() {
                 <input
                   type="number"
                   value={guestsCount}
-                  onChange={(e) => setGuestsCount(Number(e.target.value))}
-                  className="w-full px-4 py-2.5 rounded-lg bg-obsidian border border-gray-700 text-white focus:outline-none focus:border-gold text-sm"
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setGuestsCount(val);
+                    setItems(items.map(it => it.id === "base-package" ? { ...it, qty: val } : it));
+                  }}
+                  className="w-full px-4 py-2.5 rounded-lg bg-obsidian border border-gray-700 text-white focus:outline-none focus:border-gold text-xs font-mono"
                 />
               </div>
+              <div>
+                <label className="text-xs text-gray-400 font-semibold uppercase block mb-1.5">
+                  WhatsApp (Teléfono)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej. 5512345678"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-lg bg-obsidian border border-gray-700 text-white focus:outline-none focus:border-gold text-xs font-mono"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 font-semibold uppercase block mb-1.5">
+                  Fecha Propuesta
+                </label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-lg bg-obsidian border border-gray-700 text-white focus:outline-none focus:border-gold text-xs font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Package Selector */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-4">
+              <label className="text-[10px] text-gold tracking-widest font-semibold uppercase block mb-1.5">
+                Selección de Paquete Base (Precio por Persona)
+              </label>
+              <select
+                value={
+                  (() => {
+                    const currentBasePkg = items.find(it => it.id === "base-package");
+                    const pkgsList = dbPackages.length > 0 ? dbPackages : [
+                      { name: "Paquete Básico Imperial", price: 35000 },
+                      { name: "Paquete Premium Imperial", price: 60000 },
+                      { name: "Paquete VIP Imperial", price: 95000 }
+                    ];
+                    const idx = currentBasePkg ? pkgsList.findIndex(p => p.name === currentBasePkg.name) : -1;
+                    return idx >= 0 ? idx : "";
+                  })()
+                }
+                onChange={(e) => {
+                  const pkgsList = dbPackages.length > 0 ? dbPackages : [
+                    { name: "Paquete Básico Imperial", price: 35000 },
+                    { name: "Paquete Premium Imperial", price: 60000 },
+                    { name: "Paquete VIP Imperial", price: 95000 }
+                  ];
+                  if (e.target.value !== "") {
+                    const pkg = pkgsList[Number(e.target.value)];
+                    const newBase = { id: "base-package", name: pkg.name, price: pkg.price, qty: guestsCount };
+                    setItems([newBase, ...items.filter(it => it.id !== "base-package")]);
+                  } else {
+                    setItems(items.filter(it => it.id !== "base-package"));
+                  }
+                }}
+                className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-gold/30"
+              >
+                <option value="">-- Ninguno / Seleccionar Paquete --</option>
+                {(dbPackages.length > 0 ? dbPackages : [
+                  { name: "Paquete Básico Imperial", price: 35000 },
+                  { name: "Paquete Premium Imperial", price: 60000 },
+                  { name: "Paquete VIP Imperial", price: 95000 }
+                ]).map((pkg, idx) => (
+                  <option key={idx} value={idx}>
+                    {pkg.name} (${pkg.price.toLocaleString("es-MX")} / Persona)
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Items Table */}
@@ -346,8 +503,54 @@ export default function QuotesManager() {
                   ))}
                 </div>
 
-                {/* Form to Add Item */}
-                <form onSubmit={handleAddItem} className="grid grid-cols-12 gap-2 border-t border-white/5 pt-4 mt-2">
+                {/* Form to Add Item with Predefined dropdown */}
+                <div className="flex gap-2 items-center text-xs text-gray-500 border-t border-white/5 pt-4 mt-2 mb-2">
+                  <span>Cargar Catálogo:</span>
+                  <select
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        const itemsList = dbServices.length > 0 ? dbServices : [
+                          { name: "DJ Premium & Cabina Pro", price: 1200 },
+                          { name: "Banquete Gourmet 3 tiempos", price: 2500 },
+                          { name: "Mesa de Dulces Temática", price: 450 },
+                          { name: "Personal de Animación & Hostess", price: 600 },
+                          { name: "Servicio de Valet Parking Pro", price: 350 },
+                          { name: "Pista de Baile LED Extra", price: 800 },
+                          { name: "Fotografía & Video Digital", price: 950 },
+                          { name: "Grupo Musical en Vivo Pro", price: 4500 },
+                          { name: "Banda Sinaloense Premium", price: 5500 },
+                          { name: "Solista Acústico Saxofón", price: 1800 },
+                          { name: "Show de Pirotecnia Fria & Laser", price: 2200 },
+                          { name: "Cabina Giratoria 360 Video", price: 1500 },
+                        ];
+                        const item = itemsList[Number(e.target.value)];
+                        setNewItemName(item.name);
+                        setNewItemPrice(item.price);
+                      }
+                    }}
+                    className="bg-black border border-white/10 rounded-lg px-2.5 py-1 text-[11px] text-gray-300 focus:outline-none focus:border-gold/30"
+                  >
+                    <option value="">-- Seleccionar --</option>
+                    {(dbServices.length > 0 ? dbServices : [
+                      { name: "DJ Premium & Cabina Pro", price: 1200 },
+                      { name: "Banquete Gourmet 3 tiempos", price: 2500 },
+                      { name: "Mesa de Dulces Temática", price: 450 },
+                      { name: "Personal de Animación & Hostess", price: 600 },
+                      { name: "Servicio de Valet Parking Pro", price: 350 },
+                      { name: "Pista de Baile LED Extra", price: 800 },
+                      { name: "Fotografía & Video Digital", price: 950 },
+                      { name: "Grupo Musical en Vivo Pro", price: 4500 },
+                      { name: "Banda Sinaloense Premium", price: 5500 },
+                      { name: "Solista Acústico Saxofón", price: 1800 },
+                      { name: "Show de Pirotecnia Fria & Laser", price: 2200 },
+                      { name: "Cabina Giratoria 360 Video", price: 1500 },
+                    ]).map((svc, idx) => (
+                      <option key={idx} value={idx}>{svc.name} (${svc.price.toLocaleString()})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <form onSubmit={handleAddItem} className="grid grid-cols-12 gap-2">
                   <div className="col-span-5">
                     <input
                       type="text"

@@ -8,7 +8,8 @@ import {
   doc, 
   setDoc, 
   deleteDoc, 
-  onSnapshot 
+  onSnapshot,
+  getDoc
 } from "firebase/firestore";
 
 interface Transaction {
@@ -31,6 +32,70 @@ export default function FinanceDashboard() {
   const [reference, setReference] = useState("");
 
   const totalEventCost = 150000; // Mock base event budget
+
+  // Payment reports verification states
+  const [pendingReports, setPendingReports] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!db) return;
+    const unsub = onSnapshot(collection(db, "payment_reports"), (snap) => {
+      const list: any[] = [];
+      snap.forEach(docSnap => {
+        const d = docSnap.data();
+        if (d.status === "pending") {
+          list.push({ id: docSnap.id, ...d });
+        }
+      });
+      setPendingReports(list);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleApproveReport = async (report: any) => {
+    if (!db) return;
+    if (window.confirm(`¿Seguro que deseas autorizar el pago por $${report.amount.toLocaleString()} de ${report.clientName}?`)) {
+      try {
+        // 1. Approve report document
+        await setDoc(doc(db, "payment_reports", report.id), { status: "approved" }, { merge: true });
+
+        // 2. Update event paidAmount
+        const eventRef = doc(db, "events", report.eventId);
+        const eventSnap = await getDoc(eventRef);
+        if (eventSnap.exists()) {
+          const currentPaid = eventSnap.data().paidAmount || 0;
+          await setDoc(eventRef, { paidAmount: currentPaid + report.amount }, { merge: true });
+        }
+
+        // 3. Create transaction entry
+        const txId = `tx-${Date.now()}`;
+        await setDoc(doc(db, "transactions", txId), {
+          amount: report.amount,
+          type: "abono",
+          method: "transferencia",
+          reference: `Abono Autorizado: ${report.reference} (${report.clientName})`,
+          date: report.date || new Date().toISOString().split("T")[0]
+        });
+
+        alert("Pago autorizado con éxito. Se ha reflejado en el evento e ingresado a las finanzas.");
+      } catch (err) {
+        console.error(err);
+        alert("Error al autorizar el pago.");
+      }
+    }
+  };
+
+  const handleRejectReport = async (reportId: string) => {
+    if (!db) return;
+    if (window.confirm("¿Seguro que deseas rechazar este reporte de pago?")) {
+      try {
+        await setDoc(doc(db, "payment_reports", reportId), { status: "rejected" }, { merge: true });
+        alert("Reporte de pago rechazado.");
+      } catch (err) {
+        console.error(err);
+        alert("Error al rechazar el reporte.");
+      }
+    }
+  };
 
   // 1. Subscribe to Firestore transactions collection
   useEffect(() => {
@@ -319,6 +384,69 @@ export default function FinanceDashboard() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* 2. Validation of Client Payment Reports */}
+      <div className="glass-dark p-6 rounded-2xl border border-white/5 space-y-4 mt-6">
+        <h3 className="text-sm font-semibold text-gold uppercase tracking-wider flex items-center gap-2">
+          <Receipt className="h-4.5 w-4.5 text-gold" />
+          Verificación de Reportes de Pago de Clientes
+        </h3>
+        <p className="text-xs text-gray-400 font-light">
+          Aquí se muestran las transferencias, recibos y depósitos reportados por los anfitriones desde su panel. Autorizar un pago incrementará automáticamente el abono de su contrato e ingresará el movimiento al historial de transacciones.
+        </p>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs font-light">
+            <thead>
+              <tr className="text-gray-500 border-b border-white/5 uppercase text-[9px] tracking-wider font-mono">
+                <th className="py-3 px-4">Anfitrión / Evento</th>
+                <th className="py-3 px-4 text-center">Fecha de Pago</th>
+                <th className="py-3 px-4">Referencia / Folio / Ticket</th>
+                <th className="py-3 px-4 text-right">Monto</th>
+                <th className="py-3 px-4 text-center">Acción</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5 text-gray-300">
+              {pendingReports.map((rep) => (
+                <tr key={rep.id} className="hover:bg-white/[0.01]">
+                  <td className="py-3 px-4">
+                    <span className="font-semibold text-white block">{rep.clientName}</span>
+                    <span className="text-[10px] text-gray-500">{rep.eventTitle}</span>
+                  </td>
+                  <td className="py-3 px-4 text-center font-mono">{rep.date}</td>
+                  <td className="py-3 px-4">{rep.reference}</td>
+                  <td className="py-3 px-4 text-right text-emerald-400 font-mono font-bold">
+                    ${rep.amount.toLocaleString()}
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <div className="flex justify-center gap-2">
+                      <button
+                        onClick={() => handleApproveReport(rep)}
+                        className="py-1 px-3 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 rounded-lg text-[10px] uppercase font-bold transition-all"
+                      >
+                        Autorizar
+                      </button>
+                      <button
+                        onClick={() => handleRejectReport(rep.id)}
+                        className="py-1 px-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg text-[10px] uppercase font-bold transition-all"
+                      >
+                        Rechazar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {pendingReports.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-gray-500 italic">
+                    No hay reportes de pagos pendientes de verificar por gerencia.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

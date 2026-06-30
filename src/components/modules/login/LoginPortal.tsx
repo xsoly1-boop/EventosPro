@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { Shield, User, QrCode, Sparkles, KeyRound, Mail, Lock, AlertCircle } from "lucide-react";
 import { useAuth, UserRole } from "@/hooks/useAuth";
+import { db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 export default function LoginPortal() {
   const { login, loginDemo } = useAuth();
@@ -20,13 +22,46 @@ export default function LoginPortal() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleHostSubmit = (e: React.FormEvent) => {
+  const handleHostSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (hostCode.trim() === "SVIP-2026") {
+    const code = hostCode.trim();
+    if (!code) return;
+    setError("");
+    setLoading(true);
+
+    if (code === "SVIP-2026") {
+      localStorage.setItem("svip_client_event_id", "event-123");
       loginDemo("client");
-    } else {
-      setError("Código inválido. Prueba con 'SVIP-2026' para la demostración.");
+      setLoading(false);
+      return;
     }
+
+    if (db) {
+      try {
+        const docRef = doc(db, "events", code);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          localStorage.setItem("svip_client_event_id", code);
+          loginDemo("client");
+          setLoading(false);
+          return;
+        }
+
+        const lowerRef = doc(db, "events", code.toLowerCase());
+        const lowerSnap = await getDoc(lowerRef);
+        if (lowerSnap.exists()) {
+          localStorage.setItem("svip_client_event_id", code.toLowerCase());
+          loginDemo("client");
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.error("Error looking up event code:", err);
+      }
+    }
+
+    setError("Código inválido o no registrado. Verifica tu clave de evento.");
+    setLoading(false);
   };
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
@@ -141,58 +176,15 @@ export default function LoginPortal() {
                 Escáner QR ultra rápido en tiempo real para control de accesos e invitados en la recepción del salón.
               </p>
             </div>
-            <button
-              onClick={() => openAuthForm("staff")}
-              className="w-full py-3 rounded-lg border border-gold/30 text-gold text-xs font-semibold uppercase tracking-wider hover:bg-gold hover:text-obsidian transition-all duration-300 active:scale-[0.98]"
+            <a
+              href="/scanner"
+              className="block w-full py-3 rounded-lg border border-gold/30 text-gold text-xs font-semibold uppercase tracking-wider text-center hover:bg-gold hover:text-obsidian transition-all duration-300 active:scale-[0.98]"
             >
               Escanear Pases
-            </button>
+            </a>
           </div>
 
-          {/* Quick Demo Access Bar */}
-          <div className="w-full max-w-5xl mt-12 bg-white/[0.02] border border-white/5 rounded-2xl p-6 text-center z-10">
-            <span className="text-[10px] text-gold tracking-widest font-semibold uppercase block mb-3">
-              Acceso Rápido de Demostración (Prueba de Roles RBAC)
-            </span>
-            <div className="flex flex-wrap gap-3 justify-center">
-              <button
-                onClick={() => loginDemo("admin")}
-                className="px-4 py-2 rounded-xl bg-gold/10 hover:bg-gold/20 border border-gold/20 text-gold text-xs font-semibold tracking-wide transition-all duration-300"
-              >
-                Admin Master
-              </button>
-              <button
-                onClick={() => loginDemo("dueño")}
-                className="px-4 py-2 rounded-xl bg-gold/10 hover:bg-gold/20 border border-gold/20 text-gold text-xs font-semibold tracking-wide transition-all duration-300"
-              >
-                Dueño
-              </button>
-              <button
-                onClick={() => loginDemo("gerencia")}
-                className="px-4 py-2 rounded-xl bg-gold/10 hover:bg-gold/20 border border-gold/20 text-gold text-xs font-semibold tracking-wide transition-all duration-300"
-              >
-                Gerencia
-              </button>
-              <button
-                onClick={() => loginDemo("host")}
-                className="px-4 py-2 rounded-xl bg-gold/10 hover:bg-gold/20 border border-gold/20 text-gold text-xs font-semibold tracking-wide transition-all duration-300"
-              >
-                Host / Hostess
-              </button>
-              <button
-                onClick={() => loginDemo("staff")}
-                className="px-4 py-2 rounded-xl bg-gold/10 hover:bg-gold/20 border border-gold/20 text-gold text-xs font-semibold tracking-wide transition-all duration-300"
-              >
-                Staff (Lectura)
-              </button>
-              <button
-                onClick={() => loginDemo("client")}
-                className="px-4 py-2 rounded-xl bg-gold/10 hover:bg-gold/20 border border-gold/20 text-gold text-xs font-semibold tracking-wide transition-all duration-300"
-              >
-                Cliente
-              </button>
-            </div>
-          </div>
+
         </div>
       )}
 
