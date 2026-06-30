@@ -55,9 +55,9 @@ export default function TableMap({ onBack }: TableMapProps) {
 
   // Fixed Balcony tables configuration
   const balconyTables = [
-    { id: "balcony-1", cx: 300, cy: 220, tableNumber: 101, displayNum: 1 },
-    { id: "balcony-2", cx: 600, cy: 220, tableNumber: 102, displayNum: 2 },
-    { id: "balcony-3", cx: 900, cy: 220, tableNumber: 103, displayNum: 3 },
+    { id: "balcony-1", cx: 300, cy: 180, tableNumber: 101, displayNum: 1 },
+    { id: "balcony-2", cx: 600, cy: 180, tableNumber: 102, displayNum: 2 },
+    { id: "balcony-3", cx: 900, cy: 180, tableNumber: 103, displayNum: 3 },
   ];
 
   // Generate Table Coordinates dynamically based on state
@@ -315,23 +315,23 @@ export default function TableMap({ onBack }: TableMapProps) {
             <g>
               {/* Dotted border line marking the Balcony area */}
               <line
-                x1="40"
-                y1="380"
-                x2="860"
-                y2="380"
+                x1="50"
+                y1="320"
+                x2="1150"
+                y2="320"
                 className="stroke-gold/20 stroke-[2] stroke-dasharray-[6,6]"
               />
               <rect
-                x="350"
-                y="355"
+                x="500"
+                y="295"
                 width="200"
                 height="50"
                 rx="4"
                 className="fill-obsidian stroke-gold/20 stroke-[1]"
               />
               <text
-                x="450"
-                y="385"
+                x="600"
+                y="325"
                 textAnchor="middle"
                 className="fill-gold font-semibold tracking-[0.3em] text-[10px] uppercase"
               >
@@ -439,19 +439,30 @@ export default function TableMap({ onBack }: TableMapProps) {
               );
             })}
 
-            {/* 1. Cabecera (Mesa Principal - 6 sillas asignables) */}
+            {/* 1. Cabecera (Mesa Principal - 6 sillas asignables VIP) */}
             <g
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => handleTableDrop(0)}
               onClick={() => handleTableClick(0)}
               className="cursor-pointer group/honor"
             >
-              {/* Render 6 Chairs above the table rect */}
+              {/* VIP Stage Ring */}
+              <rect
+                x="260"
+                y="420"
+                width="680"
+                height="115"
+                rx="14"
+                className="fill-transparent stroke-gold/10 stroke-[1] stroke-dasharray-[4,4]"
+              />
+
+              {/* Render 6 VIP Chairs above the table rect */}
               {Array.from({ length: 6 }).map((_, seatIndex) => {
                 const chairKey = `0-${seatIndex}`;
                 const assigned = assignments[chairKey];
-                const chairCx = 600 + (seatIndex - 2.5) * 80;
-                const chairCy = 390;
+                const chairCx = 600 + (seatIndex - 2.5) * 90;
+                const chairCy = 380;
+                const vipChairRadius = 16;
 
                 return (
                   <g
@@ -465,11 +476,11 @@ export default function TableMap({ onBack }: TableMapProps) {
                     <circle
                       cx={chairCx}
                       cy={chairCy}
-                      r={14}
+                      r={vipChairRadius}
                       className={`transition-all duration-300 ${
                         assigned
-                          ? "fill-gold stroke-gold-hover stroke-[2]"
-                          : "fill-obsidian stroke-gray-700 hover:stroke-gold/70 stroke-[1]"
+                          ? "fill-gold stroke-gold-hover stroke-[2] shadow-[0_0_10px_#D4AF37]"
+                          : "fill-obsidian stroke-gold/30 hover:stroke-gold stroke-[1]"
                       }`}
                     />
                     {assigned && (
@@ -477,7 +488,7 @@ export default function TableMap({ onBack }: TableMapProps) {
                         x={chairCx}
                         y={chairCy + 3}
                         textAnchor="middle"
-                        className="fill-obsidian font-bold text-[8px] pointer-events-none"
+                        className="fill-obsidian font-bold text-[9px] pointer-events-none"
                       >
                         {assigned.name.substring(0, 2).toUpperCase()}
                       </text>
@@ -492,18 +503,18 @@ export default function TableMap({ onBack }: TableMapProps) {
               })}
 
               <rect
-                x="350"
+                x="275"
                 y="435"
-                width="500"
-                height="80"
-                rx="8"
-                className="fill-dark-gray stroke-gold/40 stroke-[2] shadow-xl group-hover/honor:stroke-gold transition-colors duration-300"
+                width="650"
+                height="90"
+                rx="10"
+                className="fill-dark-gray stroke-gold stroke-[3] shadow-[0_0_20px_rgba(212,175,55,0.15)] group-hover/honor:stroke-gold-hover transition-all duration-300"
               />
               <text
                 x="600"
-                y="480"
+                y="487"
                 textAnchor="middle"
-                className="fill-gold font-light tracking-[0.2em] text-xs uppercase"
+                className="fill-gold font-semibold tracking-[0.25em] text-xs uppercase"
               >
                 Mesa Principal de Honor
               </text>
