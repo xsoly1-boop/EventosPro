@@ -12,31 +12,37 @@ import {
   Maximize2, 
   UserPlus,
   ShieldCheck,
-  Building
+  Building,
+  Check,
+  X
 } from "lucide-react";
 
 interface StaffMember {
   id: string;
   name: string;
   role: string;
+  category: "Cocina" | "Cabina" | "Animación" | "Valet Parking" | "Meseros" | "Show" | "Otro";
   email: string;
   status: "Activo" | "Inactivo";
 }
 
 export default function SettingsManager() {
-  const [activeSubTab, setActiveSubTab] = useState<"staff" | "salon">("staff");
+  const [activeSubTab, setActiveSubTab] = useState<"staff" | "salon" | "roles">("staff");
   
-  // Mock Staff Members Data
+  // Mock Staff Members Data with Categories/Tags
   const [staff, setStaff] = useState<StaffMember[]>([
-    { id: "1", name: "Sofía Montenegro", role: "Coordinadora General", email: "sofia.m@socialesvip.com", status: "Activo" },
-    { id: "2", name: "Carlos Mendoza", role: "DJ Residente", email: "carlos.dj@socialesvip.com", status: "Activo" },
-    { id: "3", name: "Eduardo Pérez", role: "Jefe de Bartenders", email: "eduardo.p@socialesvip.com", status: "Activo" },
-    { id: "4", name: "Mariana Rojas", role: "Supervisora de Mesas", email: "mariana.r@socialesvip.com", status: "Inactivo" },
+    { id: "1", name: "Sofía Montenegro", role: "Coordinadora", category: "Animación", email: "sofia.m@socialesvip.com", status: "Activo" },
+    { id: "2", name: "Carlos Mendoza", role: "DJ Residente", category: "Cabina", email: "carlos.dj@socialesvip.com", status: "Activo" },
+    { id: "3", name: "Eduardo Pérez", role: "Jefe de Bartenders", category: "Show", email: "eduardo.p@socialesvip.com", status: "Activo" },
+    { id: "4", name: "Pedro Ruiz", role: "Chef Ejecutivo", category: "Cocina", email: "pedro.c@socialesvip.com", status: "Activo" },
+    { id: "5", name: "Mariana Rojas", role: "Jefa de Servicio", category: "Meseros", email: "mariana.r@socialesvip.com", status: "Inactivo" },
+    { id: "6", name: "Juan Gómez", role: "Supervisor Parking", category: "Valet Parking", email: "juan.g@socialesvip.com", status: "Activo" },
   ]);
 
   // Form states for new staff
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState("");
+  const [newCategory, setNewCategory] = useState<"Cocina" | "Cabina" | "Animación" | "Valet Parking" | "Meseros" | "Show" | "Otro">("Cocina");
   const [newEmail, setNewEmail] = useState("");
 
   // Salon configurations state
@@ -46,6 +52,41 @@ export default function SettingsManager() {
   const [securityDeposit, setSecurityDeposit] = useState("1500");
   const [isSaved, setIsSaved] = useState(false);
 
+  // Role permissions state
+  const [rolePermissions, setRolePermissions] = useState([
+    { 
+      role: "admin", 
+      label: "Admin Master", 
+      desc: "Acceso total a código, bases de datos y configuraciones.", 
+      modules: { dashboard: true, mesas: true, calendario: true, cotizaciones: true, finanzas: true, cronograma: true, escáner: true, config: true } 
+    },
+    { 
+      role: "dueño", 
+      label: "Dueño / Propietario", 
+      desc: "Acceso total al negocio, finanzas, métricas y gestión de toda la plantilla.", 
+      modules: { dashboard: true, mesas: true, calendario: true, cotizaciones: true, finanzas: true, cronograma: true, escáner: true, config: true } 
+    },
+    { 
+      role: "gerencia", 
+      label: "Gerencia", 
+      desc: "Permisos altos. Crea eventos, cronograma y lanza convocatoria. Sin finanzas.", 
+      modules: { dashboard: true, mesas: true, calendario: true, cotizaciones: true, finanzas: false, cronograma: true, escáner: true, config: false } 
+    },
+    { 
+      role: "host", 
+      label: "Host / Hostess", 
+      desc: "Área de recepción: lista de invitados, croquis, check-in y escáner QR.", 
+      modules: { dashboard: true, mesas: true, calendario: true, cotizaciones: false, finanzas: false, cronograma: false, escáner: true, config: false } 
+    },
+    { 
+      role: "staff", 
+      label: "Personal (Staff)", 
+      desc: "Solo lectura. Consulta de eventos asignados y horarios de llegada.", 
+      modules: { dashboard: true, mesas: false, calendario: true, cotizaciones: false, finanzas: false, cronograma: true, escáner: false, config: false } 
+    },
+  ]);
+  const [isRolesSaved, setIsRolesSaved] = useState(false);
+
   const handleAddStaff = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName || !newRole || !newEmail) return;
@@ -54,6 +95,7 @@ export default function SettingsManager() {
       id: Date.now().toString(),
       name: newName,
       role: newRole,
+      category: newCategory,
       email: newEmail,
       status: "Activo"
     };
@@ -82,6 +124,20 @@ export default function SettingsManager() {
     setTimeout(() => setIsSaved(false), 3000);
   };
 
+  const handleTogglePermission = (roleIdx: number, moduleKey: string) => {
+    const updated = [...rolePermissions];
+    const roleObj = updated[roleIdx];
+    // Cast to access dynamic keys
+    const mods = roleObj.modules as any;
+    mods[moduleKey] = !mods[moduleKey];
+    setRolePermissions(updated);
+  };
+
+  const handleSaveRoles = () => {
+    setIsRolesSaved(true);
+    setTimeout(() => setIsRolesSaved(false), 3000);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -96,7 +152,7 @@ export default function SettingsManager() {
         </div>
 
         {/* Sub Tabs Toggle */}
-        <div className="flex bg-white/5 p-1 rounded-lg border border-white/5 shrink-0 self-start md:self-auto">
+        <div className="flex flex-wrap bg-white/5 p-1 rounded-lg border border-white/5 shrink-0 self-start md:self-auto gap-1">
           <button
             onClick={() => setActiveSubTab("staff")}
             className={`py-1.5 px-4 rounded-md text-xs tracking-wide transition-all duration-300 flex items-center gap-2 ${
@@ -107,6 +163,17 @@ export default function SettingsManager() {
           >
             <Users className="h-3.5 w-3.5" />
             Gestionar Personal
+          </button>
+          <button
+            onClick={() => setActiveSubTab("roles")}
+            className={`py-1.5 px-4 rounded-md text-xs tracking-wide transition-all duration-300 flex items-center gap-2 ${
+              activeSubTab === "roles"
+                ? "bg-gold text-obsidian font-semibold"
+                : "text-gray-400 hover:text-white"
+            }`}
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Roles & Permisos
           </button>
           <button
             onClick={() => setActiveSubTab("salon")}
@@ -149,18 +216,39 @@ export default function SettingsManager() {
                 />
               </div>
 
-              <div>
-                <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
-                  Puesto / Rol
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej. Bartender, Coordinador, DJ"
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-light"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                    Categoría (Tag)
+                  </label>
+                  <select
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value as any)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30"
+                  >
+                    <option value="Cocina">Cocina</option>
+                    <option value="Cabina">Cabina</option>
+                    <option value="Animación">Animación</option>
+                    <option value="Valet Parking">Valet Parking</option>
+                    <option value="Meseros">Meseros</option>
+                    <option value="Show">Show</option>
+                    <option value="Otro">Otro</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                    Puesto / Puesto
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. Chef, Mesero B"
+                    value={newRole}
+                    onChange={(e) => setNewRole(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-light"
+                  />
+                </div>
               </div>
 
               <div>
@@ -199,9 +287,10 @@ export default function SettingsManager() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs font-light">
                 <thead>
-                  <tr className="text-gray-400 border-b border-white/5 uppercase text-[9px] tracking-wider">
+                  <tr className="text-gray-400 border-b border-white/5 uppercase text-[9px] tracking-wider font-mono">
                     <th className="py-3 px-4">Miembro</th>
-                    <th className="py-3 px-4">Rol / Puesto</th>
+                    <th className="py-3 px-4">Categoría</th>
+                    <th className="py-3 px-4">Puesto / Rol</th>
                     <th className="py-3 px-4">Contacto</th>
                     <th className="py-3 px-4">Estado</th>
                     <th className="py-3 px-4 text-right">Acciones</th>
@@ -219,7 +308,12 @@ export default function SettingsManager() {
                         </div>
                       </td>
                       <td className="py-4 px-4">
-                        <span className="bg-white/5 border border-white/10 px-2 py-1 rounded text-[10px] text-gray-400">
+                        <span className="bg-gold/10 border border-gold/20 text-gold px-2 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider">
+                          {member.category}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className="text-gray-400 text-[11px] font-light">
                           {member.role}
                         </span>
                       </td>
@@ -251,7 +345,7 @@ export default function SettingsManager() {
                   ))}
                   {staff.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-gray-500 italic">
+                      <td colSpan={6} className="py-8 text-center text-gray-500 italic">
                         No hay personal registrado en el salón.
                       </td>
                     </tr>
@@ -259,6 +353,89 @@ export default function SettingsManager() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Roles & Permisos Tab */}
+      {activeSubTab === "roles" && (
+        <div className="glass-dark rounded-2xl p-6 border border-white/5 space-y-6">
+          <div className="flex items-center justify-between border-b border-white/5 pb-4">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="text-gold h-4 w-4" />
+              <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
+                Matriz de Roles y Permisos de Módulos (RBAC)
+              </h3>
+            </div>
+            <div className="flex items-center gap-3">
+              {isRolesSaved && (
+                <span className="text-xs text-green-400 flex items-center gap-1.5 animate-fade-in">
+                  <CheckCircle2 className="h-4.5 w-4.5" />
+                  Permisos de Rol guardados
+                </span>
+              )}
+              <button
+                onClick={handleSaveRoles}
+                className="py-2 px-5 bg-gold text-obsidian rounded-xl text-xs font-semibold uppercase hover:bg-gold-hover transition-all duration-300"
+              >
+                Guardar Matriz
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs font-light">
+              <thead>
+                <tr className="text-gray-400 border-b border-white/5 uppercase text-[9px] tracking-wider font-mono">
+                  <th className="py-3 px-4 w-1/4">Rol y Descripción</th>
+                  <th className="py-3 px-2 text-center">Dashboard</th>
+                  <th className="py-3 px-2 text-center">Plan Mesas</th>
+                  <th className="py-3 px-2 text-center">Calendario</th>
+                  <th className="py-3 px-2 text-center">Cotizaciones</th>
+                  <th className="py-3 px-2 text-center">Finanzas</th>
+                  <th className="py-3 px-2 text-center">Cronograma</th>
+                  <th className="py-3 px-2 text-center">Escáner QR</th>
+                  <th className="py-3 px-2 text-center">Config System</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {rolePermissions.map((roleObj, roleIdx) => {
+                  const mods = roleObj.modules as any;
+                  return (
+                    <tr key={roleObj.role} className="text-gray-300 hover:bg-white/[0.01]">
+                      <td className="py-4 px-4">
+                        <h4 className="text-xs font-semibold text-white">{roleObj.label}</h4>
+                        <p className="text-[10px] text-gray-500 font-light mt-1 leading-normal">
+                          {roleObj.desc}
+                        </p>
+                      </td>
+                      
+                      {/* Permissions checkmarks checkboxes */}
+                      {Object.keys(roleObj.modules).map((moduleKey) => {
+                        const isChecked = mods[moduleKey];
+                        const isDisabled = roleObj.role === "admin"; // Admin cannot be restricted
+
+                        return (
+                          <td key={moduleKey} className="py-4 px-2 text-center">
+                            <button
+                              disabled={isDisabled}
+                              onClick={() => handleTogglePermission(roleIdx, moduleKey)}
+                              className={`w-6 h-6 rounded-lg border transition-all duration-300 flex items-center justify-center mx-auto ${
+                                isChecked
+                                  ? "bg-gold/10 border-gold text-gold"
+                                  : "bg-white/5 border-white/10 text-gray-600 hover:border-white/20"
+                              } ${isDisabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+                            >
+                              {isChecked ? <Check className="h-3.5 w-3.5" /> : <X className="h-2.5 w-2.5" />}
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

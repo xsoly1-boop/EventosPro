@@ -148,6 +148,51 @@ export default function LoginPortal() {
               Escanear Pases
             </button>
           </div>
+
+          {/* Quick Demo Access Bar */}
+          <div className="w-full max-w-5xl mt-12 bg-white/[0.02] border border-white/5 rounded-2xl p-6 text-center z-10">
+            <span className="text-[10px] text-gold tracking-widest font-semibold uppercase block mb-3">
+              Acceso Rápido de Demostración (Prueba de Roles RBAC)
+            </span>
+            <div className="flex flex-wrap gap-3 justify-center">
+              <button
+                onClick={() => loginDemo("admin")}
+                className="px-4 py-2 rounded-xl bg-gold/10 hover:bg-gold/20 border border-gold/20 text-gold text-xs font-semibold tracking-wide transition-all duration-300"
+              >
+                Admin Master
+              </button>
+              <button
+                onClick={() => loginDemo("dueño")}
+                className="px-4 py-2 rounded-xl bg-gold/10 hover:bg-gold/20 border border-gold/20 text-gold text-xs font-semibold tracking-wide transition-all duration-300"
+              >
+                Dueño
+              </button>
+              <button
+                onClick={() => loginDemo("gerencia")}
+                className="px-4 py-2 rounded-xl bg-gold/10 hover:bg-gold/20 border border-gold/20 text-gold text-xs font-semibold tracking-wide transition-all duration-300"
+              >
+                Gerencia
+              </button>
+              <button
+                onClick={() => loginDemo("host")}
+                className="px-4 py-2 rounded-xl bg-gold/10 hover:bg-gold/20 border border-gold/20 text-gold text-xs font-semibold tracking-wide transition-all duration-300"
+              >
+                Host / Hostess
+              </button>
+              <button
+                onClick={() => loginDemo("staff")}
+                className="px-4 py-2 rounded-xl bg-gold/10 hover:bg-gold/20 border border-gold/20 text-gold text-xs font-semibold tracking-wide transition-all duration-300"
+              >
+                Staff (Lectura)
+              </button>
+              <button
+                onClick={() => loginDemo("client")}
+                className="px-4 py-2 rounded-xl bg-gold/10 hover:bg-gold/20 border border-gold/20 text-gold text-xs font-semibold tracking-wide transition-all duration-300"
+              >
+                Cliente
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

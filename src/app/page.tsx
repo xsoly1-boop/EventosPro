@@ -49,14 +49,14 @@ export default function Home() {
 
   // RBAC Tab filtering
   const navigationItems = [
-    { id: "overview", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "client", "staff"] },
-    { id: "tables", label: "Plano de Mesas", icon: Map, roles: ["admin", "client", "staff"] },
-    { id: "calendar", label: "Calendario & Reservas", icon: CalendarDays, roles: ["admin", "client", "staff"] },
-    { id: "quotes", label: "Cotizaciones", icon: FileSpreadsheet, roles: ["admin"] },
-    { id: "finance", label: "Finanzas", icon: WalletCards, roles: ["admin", "client"] },
-    { id: "timeline", label: "Cronograma", icon: Clock, roles: ["admin", "client"] },
-    { id: "scanner", label: "Escáner & Aforo", icon: QrCode, roles: ["admin", "staff"] },
-    { id: "settings", label: "Personal & Config.", icon: Sliders, roles: ["admin"] },
+    { id: "overview", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "dueño", "gerencia", "host", "staff", "client"] },
+    { id: "tables", label: "Plano de Mesas", icon: Map, roles: ["admin", "dueño", "gerencia", "host", "client"] },
+    { id: "calendar", label: "Calendario & Reservas", icon: CalendarDays, roles: ["admin", "dueño", "gerencia", "host", "staff", "client"] },
+    { id: "quotes", label: "Cotizaciones", icon: FileSpreadsheet, roles: ["admin", "dueño", "gerencia"] },
+    { id: "finance", label: "Finanzas", icon: WalletCards, roles: ["admin", "dueño"] },
+    { id: "timeline", label: "Cronograma", icon: Clock, roles: ["admin", "dueño", "gerencia", "staff"] },
+    { id: "scanner", label: "Escáner & Aforo", icon: QrCode, roles: ["admin", "dueño", "gerencia", "host"] },
+    { id: "settings", label: "Personal & Config.", icon: Sliders, roles: ["admin", "dueño"] },
   ];
 
   const allowedTabs = navigationItems.filter(item => item.roles.includes(user.role || ""));
@@ -112,7 +112,12 @@ export default function Home() {
             <div className="overflow-hidden">
               <h4 className="text-xs font-semibold text-white truncate">{user.displayName}</h4>
               <span className="text-[9px] font-mono text-gold uppercase tracking-wider block mt-0.5">
-                Rol: {user.role}
+                Rol: {user.role === "admin" ? "Admin Master" : 
+                      user.role === "dueño" ? "Dueño" : 
+                      user.role === "gerencia" ? "Gerencia" : 
+                      user.role === "host" ? "Host / Hostess" : 
+                      user.role === "staff" ? "Staff" : 
+                      user.role === "client" ? "Anfitrión" : user.role}
               </span>
             </div>
           </div>
@@ -175,7 +180,14 @@ function OverviewTab({ user, setActiveTab, allowedTabs }: OverviewProps) {
           Bienvenido
         </span>
         <h1 className="text-3xl font-light text-white">
-          Panel de Control: <span className="font-semibold text-gold capitalize">{user.role}</span>
+          Panel de Control: <span className="font-semibold text-gold capitalize">
+            {user.role === "admin" ? "Admin Master" : 
+             user.role === "dueño" ? "Dueño (Propietario)" : 
+             user.role === "gerencia" ? "Gerencia" : 
+             user.role === "host" ? "Host / Hostess" : 
+             user.role === "staff" ? "Personal (Staff)" : 
+             user.role === "client" ? "Anfitrión / Cliente" : user.role}
+          </span>
         </h1>
         <p className="text-gray-400 text-xs font-light mt-1">
           Aquí tienes los accesos directos a los módulos asignados a tu cuenta de usuario.
