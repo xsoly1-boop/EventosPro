@@ -241,7 +241,7 @@ export default function TableMap({ onBack }: TableMapProps) {
               <input
                 type="range"
                 min="1"
-                max="20"
+                max="24"
                 step="1"
                 value={honorCapacity}
                 onChange={(e) => setHonorCapacity(Number(e.target.value))}
@@ -249,7 +249,7 @@ export default function TableMap({ onBack }: TableMapProps) {
               />
               <div className="flex justify-between text-[9px] text-gray-500 mt-1 font-mono">
                 <span>1 Persona</span>
-                <span>20 Personas</span>
+                <span>24 Personas</span>
               </div>
             </div>
           </div>
@@ -480,19 +480,21 @@ export default function TableMap({ onBack }: TableMapProps) {
 
             {/* 1. Cabecera (Mesa Principal de Honor - Dinámica 1 o 2 Mesas en Vertical con Distribución Perimetral) */}
             {(() => {
-              // Helper to build perimeter chairs positions for horizontal table (up to 10 per table)
+              // Helper to build perimeter chairs positions for horizontal table (up to 12 per table)
               const getTablePerimeterChairs = (cx: number, cy: number, count: number) => {
                 const slots = [
-                  { dx: -45, dy: -65 },  // 1. Top mid-left
-                  { dx: 45, dy: -65 },   // 2. Top mid-right
-                  { dx: -45, dy: 65 },   // 3. Bottom mid-left
-                  { dx: 45, dy: 65 },    // 4. Bottom mid-right
+                  { dx: -60, dy: -65 },  // 1. Top mid-left
+                  { dx: 60, dy: -65 },   // 2. Top mid-right
+                  { dx: -60, dy: 65 },   // 3. Bottom mid-left
+                  { dx: 60, dy: 65 },    // 4. Bottom mid-right
                   { dx: -165, dy: 0 },   // 5. Left
                   { dx: 165, dy: 0 },    // 6. Right
-                  { dx: -115, dy: -65 }, // 7. Top far-left
-                  { dx: 115, dy: -65 },  // 8. Top far-right
-                  { dx: -115, dy: 65 },  // 9. Bottom far-left
-                  { dx: 115, dy: 65 },   // 10. Bottom far-right
+                  { dx: -120, dy: -65 }, // 7. Top far-left
+                  { dx: 120, dy: -65 },  // 8. Top far-right
+                  { dx: -120, dy: 65 },  // 9. Bottom far-left
+                  { dx: 120, dy: 65 },   // 10. Bottom far-right
+                  { dx: 0, dy: -65 },    // 11. Top center
+                  { dx: 0, dy: 65 },     // 12. Bottom center
                 ];
 
                 return slots.slice(0, count).map((slot, index) => ({
@@ -502,19 +504,21 @@ export default function TableMap({ onBack }: TableMapProps) {
                 }));
               };
 
-              // Helper to build perimeter chairs positions for rotated vertical table (up to 10 per table)
+              // Helper to build perimeter chairs positions for rotated vertical table (up to 12 per table)
               const getTableVerticalPerimeterChairs = (cx: number, cy: number, count: number) => {
                 const slots = [
-                  { dx: -65, dy: -45 },  // 1. Left mid-top
-                  { dx: -65, dy: 45 },   // 2. Left mid-bottom
-                  { dx: 65, dy: -45 },   // 3. Right mid-top
-                  { dx: 65, dy: 45 },    // 4. Right mid-bottom
+                  { dx: -65, dy: -60 },  // 1. Left mid-top
+                  { dx: -65, dy: 60 },   // 2. Left mid-bottom
+                  { dx: 65, dy: -60 },   // 3. Right mid-top
+                  { dx: 65, dy: 60 },    // 4. Right mid-bottom
                   { dx: 0, dy: -165 },   // 5. Top
                   { dx: 0, dy: 165 },    // 6. Bottom
-                  { dx: -65, dy: -115 }, // 7. Left far-top
-                  { dx: -65, dy: 115 },  // 8. Left far-bottom
-                  { dx: 65, dy: -115 },  // 9. Right far-top
-                  { dx: 65, dy: 115 },   // 10. Right far-bottom
+                  { dx: -65, dy: -120 }, // 7. Left far-top
+                  { dx: -65, dy: 120 },  // 8. Left far-bottom
+                  { dx: 65, dy: -120 },  // 9. Right far-top
+                  { dx: 65, dy: 120 },   // 10. Right far-bottom
+                  { dx: -65, dy: 0 },    // 11. Left center
+                  { dx: 65, dy: 0 },     // 12. Right center
                 ];
 
                 return slots.slice(0, count).map((slot, index) => ({
