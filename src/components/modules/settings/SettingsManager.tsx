@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Users, 
   Sliders, 
@@ -53,6 +53,25 @@ export default function SettingsManager() {
   const [baseRent, setBaseRent] = useState("5000");
   const [securityDeposit, setSecurityDeposit] = useState("1500");
   const [isSaved, setIsSaved] = useState(false);
+
+  // Time Offsets for categories states
+  const [offsetCocina, setOffsetCocina] = useState(4);
+  const [offsetMeseros, setOffsetMeseros] = useState(3);
+  const [offsetCabina, setOffsetCabina] = useState(2);
+  const [offsetAnimacion, setOffsetAnimacion] = useState(1);
+  const [offsetValet, setOffsetValet] = useState(1);
+  const [offsetShow, setOffsetShow] = useState(0);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setOffsetCocina(Number(localStorage.getItem("svip_offset_Cocina") || "4"));
+      setOffsetMeseros(Number(localStorage.getItem("svip_offset_Meseros") || "3"));
+      setOffsetCabina(Number(localStorage.getItem("svip_offset_Cabina") || "2"));
+      setOffsetAnimacion(Number(localStorage.getItem("svip_offset_Animacion") || "1"));
+      setOffsetValet(Number(localStorage.getItem("svip_offset_Valet") || "1"));
+      setOffsetShow(Number(localStorage.getItem("svip_offset_Show") || "0"));
+    }
+  }, []);
 
   // Role permissions state
   const [rolePermissions, setRolePermissions] = useState([
@@ -122,6 +141,14 @@ export default function SettingsManager() {
 
   const handleSaveSalon = (e: React.FormEvent) => {
     e.preventDefault();
+    if (typeof window !== "undefined") {
+      localStorage.setItem("svip_offset_Cocina", String(offsetCocina));
+      localStorage.setItem("svip_offset_Meseros", String(offsetMeseros));
+      localStorage.setItem("svip_offset_Cabina", String(offsetCabina));
+      localStorage.setItem("svip_offset_Animacion", String(offsetAnimacion));
+      localStorage.setItem("svip_offset_Valet", String(offsetValet));
+      localStorage.setItem("svip_offset_Show", String(offsetShow));
+    }
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   };
@@ -519,6 +546,111 @@ export default function SettingsManager() {
                       value={securityDeposit}
                       onChange={(e) => setSecurityDeposit(e.target.value)}
                       className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-light"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Category Time Offsets Section */}
+              <div className="border-t border-white/5 pt-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Sliders className="text-gold h-4 w-4" />
+                  <h4 className="text-xs font-semibold text-white uppercase tracking-wider">
+                    Desfases de Convocatoria por Categoría (Convocatoria WhatsApp)
+                  </h4>
+                </div>
+                <p className="text-[11px] text-gray-500 font-light leading-normal">
+                  Define cuántas horas antes del inicio del evento se debe enviar la notificación automática a cada categoría de staff.
+                </p>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                      Cocina (Horas Antes)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      max={24}
+                      value={offsetCocina}
+                      onChange={(e) => setOffsetCocina(Number(e.target.value))}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                      Meseros (Horas Antes)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      max={24}
+                      value={offsetMeseros}
+                      onChange={(e) => setOffsetMeseros(Number(e.target.value))}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                      Cabina / DJ (Horas Antes)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      max={24}
+                      value={offsetCabina}
+                      onChange={(e) => setOffsetCabina(Number(e.target.value))}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                      Animación (Horas Antes)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      max={24}
+                      value={offsetAnimacion}
+                      onChange={(e) => setOffsetAnimacion(Number(e.target.value))}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                      Valet Parking (Horas Antes)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      max={24}
+                      value={offsetValet}
+                      onChange={(e) => setOffsetValet(Number(e.target.value))}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                      Show / Entretenimiento (Horas Antes)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      max={24}
+                      value={offsetShow}
+                      onChange={(e) => setOffsetShow(Number(e.target.value))}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
                     />
                   </div>
                 </div>

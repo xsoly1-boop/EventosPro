@@ -130,12 +130,32 @@ export default function LogisticsTimeline() {
     return `${String(targetHour).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
   };
 
-  // Re-calculate call times when event time changes
+  // Re-calculate call times when event time changes, reading custom settings from localStorage
   useEffect(() => {
-    setStaffCalls(prev => prev.map(call => ({
-      ...call,
-      callTimeStr: calculateCallTime(eventTime, call.offsetHours)
-    })));
+    if (typeof window !== "undefined") {
+      const offCocina = Number(localStorage.getItem("svip_offset_Cocina") || "4");
+      const offMeseros = Number(localStorage.getItem("svip_offset_Meseros") || "3");
+      const offCabina = Number(localStorage.getItem("svip_offset_Cabina") || "2");
+      const offAnim = Number(localStorage.getItem("svip_offset_Animacion") || "1");
+      const offValet = Number(localStorage.getItem("svip_offset_Valet") || "1");
+      const offShow = Number(localStorage.getItem("svip_offset_Show") || "0");
+
+      setStaffCalls(prev => prev.map(call => {
+        let currentOffset = call.offsetHours;
+        if (call.category === "Cocina") currentOffset = offCocina;
+        if (call.category === "Meseros") currentOffset = offMeseros;
+        if (call.category === "Cabina") currentOffset = offCabina;
+        if (call.category === "Animación") currentOffset = offAnim;
+        if (call.category === "Valet Parking") currentOffset = offValet;
+        if (call.category === "Show") currentOffset = offShow;
+
+        return {
+          ...call,
+          offsetHours: currentOffset,
+          callTimeStr: calculateCallTime(eventTime, currentOffset)
+        };
+      }));
+    }
   }, [eventTime]);
 
   const handleToggleComplete = (id: string) => {
