@@ -19,7 +19,7 @@ export default function QRScanner() {
   const [isCameraActive, setIsCameraActive] = useState(false);
 
   // Seating Mode state
-  const [openSeatingMode, setOpenSeatingMode] = useState(false);
+  const [openSeatingMode, setOpenSeatingMode] = useState<boolean | "hibrido">(false);
   const [totalTables, setTotalTables] = useState<number>(26);
   const [honorCapacity, setHonorCapacity] = useState<number>(6);
 
@@ -126,13 +126,13 @@ export default function QRScanner() {
   );
 
   return (
-    <div className="p-4 space-y-6 w-full max-w-5xl mx-auto">
+    <div className="p-4 space-y-6 w-full max-w-6xl mx-auto">
       {/* Attendance summary stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="glass p-5 rounded-xl border border-white/5 flex flex-col justify-between">
           <div>
             <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1">
-              {openSeatingMode ? "Ocupación Total Salón" : "Aforo Total Salón"}
+              Ocupación Total Salón
             </span>
             <h3 className="text-2xl font-bold text-white font-mono">
               {checkedInCount} <span className="text-gray-500 text-sm">/ {capacityTotal}</span>
@@ -153,7 +153,7 @@ export default function QRScanner() {
             </h3>
           </div>
           <span className="text-[10px] text-gray-400 mt-4 font-light">
-            {openSeatingMode ? "Monitoreo en tiempo real (Clicker)" : "En tiempo real vía escáner QR"}
+            {openSeatingMode === true ? "Monitoreo en tiempo real (Clicker)" : "Recepción dual (QR + Aforo General)"}
           </span>
         </div>
 
@@ -171,7 +171,8 @@ export default function QRScanner() {
       </div>
 
       {/* Main split */}
-      {openSeatingMode ? (
+      {openSeatingMode === true ? (
+        // Pure Open Seating Mode (Clicker Only)
         <div className="glass-dark rounded-2xl border border-white/5 p-8 max-w-2xl mx-auto space-y-6 text-center">
           <div className="w-16 h-16 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center mx-auto mb-2">
             <Users className="text-gold h-8 w-8" />
@@ -186,7 +187,6 @@ export default function QRScanner() {
             </p>
           </div>
 
-          {/* Clicker counters */}
           <div className="flex flex-col items-center justify-center gap-6 py-4">
             <div className="flex items-center gap-6">
               <button
@@ -213,7 +213,6 @@ export default function QRScanner() {
               </button>
             </div>
 
-            {/* Quick entry groups */}
             <div className="flex justify-center gap-2 pt-2">
               <button
                 onClick={() => handleRegisterAnonymousEntry(2)}
@@ -236,7 +235,6 @@ export default function QRScanner() {
             </div>
           </div>
 
-          {/* Scan result banner */}
           {scanResult && (
             <div
               className={`p-4 rounded-xl border flex items-start gap-3 justify-center text-left max-w-md mx-auto animate-fade-in ${
@@ -260,52 +258,93 @@ export default function QRScanner() {
           )}
         </div>
       ) : (
+        // Fixed Seating or Hybrid Mode
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column: Simulated QR camera view */}
-          <div className="lg:col-span-5 space-y-4">
-            <h4 className="text-sm font-semibold text-gold tracking-wider uppercase">
-              Cámara de Escaneo
-            </h4>
-            <div className="glass-dark rounded-2xl border border-white/5 overflow-hidden flex flex-col items-center justify-center p-8 aspect-video relative bg-black min-h-[300px]">
-              {isCameraActive ? (
-                <div className="text-center space-y-4 flex flex-col items-center">
-                  <div className="absolute top-0 left-0 w-full h-1 bg-gold opacity-55 shadow-[0_0_10px_#D4AF37] animate-bounce" />
-                  <Camera className="h-12 w-12 text-gold animate-pulse mb-2" />
-                  <span className="text-xs text-gold uppercase tracking-widest font-mono">
-                    Buscando código QR de invitación...
-                  </span>
-                  <button
-                    onClick={() => setIsCameraActive(false)}
-                    className="px-4 py-2 rounded-lg bg-red-950/40 border border-red-500/30 text-red-200 text-xs font-semibold uppercase hover:bg-red-500/20 transition-all duration-300"
-                  >
-                    Desactivar Cámara
-                  </button>
-                </div>
-              ) : (
-                <div className="text-center space-y-4">
-                  <QrCode className="h-16 w-16 text-gray-700 mx-auto" />
-                  <div className="space-y-1">
-                    <p className="text-white text-xs font-semibold">Cámara inactiva</p>
-                    <p className="text-gray-500 text-[10px] max-w-xs mx-auto">
-                      Activa la cámara frontal para escanear pases QR directamente desde dispositivos móviles.
-                    </p>
-                  </div>
-                  <div className="flex gap-2 justify-center pt-2">
+          {/* Left Column: QR Scanner Camera & Headcount clicker (if Hybrid) */}
+          <div className="lg:col-span-5 space-y-6">
+            {openSeatingMode === "hibrido" && (
+              <div className="glass-dark rounded-2xl border border-gold/10 p-5 space-y-4">
+                <span className="text-[10px] text-gold tracking-widest font-semibold uppercase block">
+                  Aforo General (Asientos no reservados)
+                </span>
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-2">
                     <button
-                      onClick={() => setIsCameraActive(true)}
-                      className="px-4 py-2 rounded-lg bg-gold hover:bg-gold-hover text-obsidian text-xs font-bold uppercase transition-colors"
+                      onClick={handleRegisterAnonymousExit}
+                      className="px-3 py-1.5 rounded-lg bg-red-950/20 border border-red-500/20 text-red-400 text-xs hover:bg-red-950/40 transition-colors"
                     >
-                      Activar Cámara
+                      -1 Salida
                     </button>
                     <button
-                      onClick={handleSimulateScan}
-                      className="px-4 py-2 rounded-lg border border-white/10 hover:border-gold/30 text-white text-xs font-semibold uppercase hover:bg-white/5 transition-colors"
+                      onClick={() => handleRegisterAnonymousEntry(1)}
+                      className="px-3 py-1.5 rounded-lg bg-gold hover:bg-gold-hover text-obsidian text-xs font-semibold transition-colors"
                     >
-                      Simular Escaneo
+                      +1 Entrada
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleRegisterAnonymousEntry(2)}
+                      className="px-2 py-1 rounded bg-white/5 border border-white/10 text-white text-[9px] hover:bg-white/10"
+                    >
+                      +2
+                    </button>
+                    <button
+                      onClick={() => handleRegisterAnonymousEntry(4)}
+                      className="px-2 py-1 rounded bg-white/5 border border-white/10 text-white text-[9px] hover:bg-white/10"
+                    >
+                      +4
                     </button>
                   </div>
                 </div>
-              )}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-gold tracking-wider uppercase">
+                Cámara de Escaneo QR
+              </h4>
+              <div className="glass-dark rounded-2xl border border-white/5 overflow-hidden flex flex-col items-center justify-center p-8 aspect-video relative bg-black min-h-[260px]">
+                {isCameraActive ? (
+                  <div className="text-center space-y-4 flex flex-col items-center">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gold opacity-55 shadow-[0_0_10px_#D4AF37] animate-bounce" />
+                    <Camera className="h-12 w-12 text-gold animate-pulse mb-2" />
+                    <span className="text-xs text-gold uppercase tracking-widest font-mono">
+                      Buscando código QR de invitación...
+                    </span>
+                    <button
+                      onClick={() => setIsCameraActive(false)}
+                      className="px-4 py-2 rounded-lg bg-red-950/40 border border-red-500/30 text-red-200 text-xs font-semibold uppercase hover:bg-red-500/20 transition-all duration-300"
+                    >
+                      Desactivar Cámara
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center space-y-4">
+                    <QrCode className="h-16 w-16 text-gray-700 mx-auto" />
+                    <div className="space-y-1">
+                      <p className="text-white text-xs font-semibold">Cámara inactiva</p>
+                      <p className="text-gray-500 text-[10px] max-w-xs mx-auto">
+                        Activa la cámara frontal para escanear pases QR directamente desde dispositivos móviles.
+                      </p>
+                    </div>
+                    <div className="flex gap-2 justify-center pt-2">
+                      <button
+                        onClick={() => setIsCameraActive(true)}
+                        className="px-4 py-2 rounded-lg bg-gold hover:bg-gold-hover text-obsidian text-xs font-bold uppercase transition-colors"
+                      >
+                        Activar Cámara
+                      </button>
+                      <button
+                        onClick={handleSimulateScan}
+                        className="px-4 py-2 rounded-lg border border-white/10 hover:border-gold/30 text-white text-xs font-semibold uppercase hover:bg-white/5 transition-colors"
+                      >
+                        Simular Escaneo
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {scanResult && (
@@ -334,7 +373,7 @@ export default function QRScanner() {
           {/* Right Column: Guest search & Manual Check-in */}
           <div className="lg:col-span-7 space-y-4">
             <h4 className="text-sm font-semibold text-gold tracking-wider uppercase">
-              Búsqueda Logística de Invitados
+              Búsqueda Logística de Invitados {openSeatingMode === "hibrido" && "VIP"}
             </h4>
             <div className="glass rounded-2xl border border-white/5 p-6 space-y-4 bg-white/[0.01]">
               <div className="relative">

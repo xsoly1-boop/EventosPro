@@ -59,7 +59,7 @@ export default function SettingsManager() {
   const [salonAddress, setSalonAddress] = useState("Av. Las Lomas #450, Ciudad VIP");
   const [baseRent, setBaseRent] = useState("5000");
   const [securityDeposit, setSecurityDeposit] = useState("1500");
-  const [openSeatingMode, setOpenSeatingMode] = useState(false);
+  const [openSeatingMode, setOpenSeatingMode] = useState<boolean | "hibrido">(false);
   const [isSaved, setIsSaved] = useState(false);
 
   // Time Offsets values and units states
@@ -121,7 +121,7 @@ export default function SettingsManager() {
       role: "staff", 
       label: "Personal (Staff)", 
       desc: "Solo lectura. Consulta de eventos asignados y horarios de llegada.", 
-      modules: { dashboard: true, mesas: false, calendario: true, cotizaciones: false, finanzas: false, cronograma: true, escáner: false, config: false } 
+      modules: { dashboard: true, mesas: false, calendario: true, cotizaciones: false, font_mono: false, finanzas: false, cronograma: true, escáner: false, config: false } 
     },
   ]);
   const [isRolesSaved, setIsRolesSaved] = useState(false);
@@ -202,7 +202,12 @@ export default function SettingsManager() {
         setDanceFloorWidth(data.danceFloorWidth ?? 4.0);
         setBalconyTablesCount(data.balconyTablesCount ?? 3);
         setBalconyMarginPx(data.balconyMarginPx ?? 5);
-        setOpenSeatingMode(data.openSeatingMode || false);
+
+        if (data.openSeatingMode !== undefined) {
+          setOpenSeatingMode(data.openSeatingMode);
+        } else {
+          setOpenSeatingMode(false);
+        }
       }
     });
 
@@ -320,7 +325,6 @@ export default function SettingsManager() {
   const handleTogglePermission = (roleIdx: number, moduleKey: string) => {
     const updated = [...rolePermissions];
     const roleObj = updated[roleIdx];
-    // Cast to access dynamic keys
     const mods = roleObj.modules as any;
     mods[moduleKey] = !mods[moduleKey];
     setRolePermissions(updated);
@@ -616,10 +620,9 @@ export default function SettingsManager() {
                         </p>
                       </td>
                       
-                      {/* Permissions checkmarks checkboxes */}
                       {Object.keys(roleObj.modules).map((moduleKey) => {
                         const isChecked = mods[moduleKey];
-                        const isDisabled = roleObj.role === "admin"; // Admin cannot be restricted
+                        const isDisabled = roleObj.role === "admin";
 
                         return (
                           <td key={moduleKey} className="py-4 px-2 text-center">
@@ -678,12 +681,19 @@ export default function SettingsManager() {
                     Modo Distribución de Asientos
                   </label>
                   <select
-                    value={openSeatingMode ? "libre" : "fijo"}
-                    onChange={(e) => setOpenSeatingMode(e.target.value === "libre")}
+                    value={openSeatingMode === true ? "libre" : openSeatingMode === "hibrido" ? "hibrido" : "fijo"}
+                    onChange={(e) => {
+                      if (e.target.value === "hibrido") {
+                        setOpenSeatingMode("hibrido");
+                      } else {
+                        setOpenSeatingMode(e.target.value === "libre" ? true : false);
+                      }
+                    }}
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30"
                   >
                     <option value="fijo">Asignación Fija (Listado & Croquis)</option>
                     <option value="libre">Aforo Libre (Orden de Llegada)</option>
+                    <option value="hibrido">Híbrido (Asignación VIP + Aforo General)</option>
                   </select>
                 </div>
 
@@ -1004,7 +1014,7 @@ export default function SettingsManager() {
                   <div className="flex items-center gap-2">
                     <input
                       type="number"
-                      value={salonWidth} // Wait, there is a copy-paste bug here! Let's make sure it is salonLength!
+                      value={salonLength}
                       onChange={(e) => setSalonLength(Number(e.target.value))}
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-gold/30 font-mono text-right"
                     />

@@ -55,7 +55,7 @@ export default function TableMap({ onBack }: TableMapProps) {
   // Dynamic tables state
   const [totalTables, setTotalTables] = useState<number>(26);
   const [honorCapacity, setHonorCapacity] = useState<number>(6);
-  const [openSeatingMode, setOpenSeatingMode] = useState(false);
+  const [openSeatingMode, setOpenSeatingMode] = useState<boolean | "hibrido">(false);
 
   // Subscribe to settings from Firestore to sync totalTables and honorCapacity in real-time
   useEffect(() => {
@@ -303,12 +303,12 @@ export default function TableMap({ onBack }: TableMapProps) {
           </div>
 
           {/* Draggable Guests List or Aforo Libre Control Panel */}
-          <div>
-            {openSeatingMode ? (
+          <div className="space-y-6">
+            {(openSeatingMode === true || openSeatingMode === "hibrido") && (
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gold">
                   <Users className="h-4 w-4" />
-                  <span>Aforo Libre Activo</span>
+                  <span>Aforo Libre {openSeatingMode === "hibrido" && "(Híbrido)"}</span>
                 </div>
                 
                 <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3">
@@ -378,16 +378,18 @@ export default function TableMap({ onBack }: TableMapProps) {
                   </button>
                 </div>
               </div>
-            ) : (
-              <>
+            )}
+
+            {(openSeatingMode === false || openSeatingMode === "hibrido") && (
+              <div className={openSeatingMode === "hibrido" ? "border-t border-white/5 pt-4" : ""}>
                 <div className="flex items-center gap-2 mb-4 text-xs font-semibold uppercase tracking-wider text-gray-400">
                   <Users className="h-4 w-4 text-gold" />
-                  <span>Invitados por Asignar ({unassignedGuests.length})</span>
+                  <span>Invitados VIP a Asignar ({unassignedGuests.length})</span>
                 </div>
 
-                <div className="space-y-2.5 max-h-[40vh] md:max-h-[50vh] overflow-y-auto pr-1">
+                <div className="space-y-2.5 max-h-[30vh] overflow-y-auto pr-1">
                   {loading ? (
-                    <div className="text-center py-10 text-xs text-gray-500 font-light flex flex-col items-center justify-center gap-3">
+                    <div className="text-center py-6 text-xs text-gray-500 font-light flex flex-col items-center justify-center gap-3">
                       <div className="w-5 h-5 border-2 border-gold border-t-transparent rounded-full animate-spin" />
                       <span>Sincronizando Firestore...</span>
                     </div>
@@ -416,14 +418,14 @@ export default function TableMap({ onBack }: TableMapProps) {
                       })}
 
                       {unassignedGuests.length === 0 && (
-                        <div className="text-center py-8 text-xs text-gray-500 font-light">
+                        <div className="text-center py-6 text-xs text-gray-500 font-light">
                           Todos los invitados han sido asignados al plano.
                         </div>
                       )}
                     </>
                   )}
                 </div>
-              </>
+              </div>
             )}
           </div>
         </div>
