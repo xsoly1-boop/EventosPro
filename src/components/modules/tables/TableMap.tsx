@@ -55,11 +55,11 @@ export default function TableMap({ onBack }: TableMapProps) {
   const [honorCapacity, setHonorCapacity] = useState<number>(6);
 
   const isDoubleHonor = honorCapacity > 6;
-  const startY = isDoubleHonor ? 680 : 500;
+  const startY = isDoubleHonor ? 580 : 500;
   const endY = 2850;
 
   const danceFloorMarkers = isDoubleHonor 
-    ? [1000, 1750, 2400] 
+    ? [950, 1650, 2350] 
     : [900, 1600, 2300];
 
   // Fixed Balcony tables configuration
@@ -480,7 +480,7 @@ export default function TableMap({ onBack }: TableMapProps) {
 
             {/* 1. Cabecera (Mesa Principal de Honor - Dinámica 1 o 2 Mesas en Vertical con Distribución Perimetral) */}
             {(() => {
-              // Helper to build perimeter chairs positions (up to 10 per table)
+              // Helper to build perimeter chairs positions for horizontal table (up to 10 per table)
               const getTablePerimeterChairs = (cx: number, cy: number, count: number) => {
                 const slots = [
                   { dx: -45, dy: -65 },  // 1. Top mid-left
@@ -493,6 +493,28 @@ export default function TableMap({ onBack }: TableMapProps) {
                   { dx: 115, dy: -65 },  // 8. Top far-right
                   { dx: -115, dy: 65 },  // 9. Bottom far-left
                   { dx: 115, dy: 65 },   // 10. Bottom far-right
+                ];
+
+                return slots.slice(0, count).map((slot, index) => ({
+                  cx: cx + slot.dx,
+                  cy: cy + slot.dy,
+                  seatIndex: index
+                }));
+              };
+
+              // Helper to build perimeter chairs positions for rotated vertical table (up to 10 per table)
+              const getTableVerticalPerimeterChairs = (cx: number, cy: number, count: number) => {
+                const slots = [
+                  { dx: -65, dy: -45 },  // 1. Left mid-top
+                  { dx: -65, dy: 45 },   // 2. Left mid-bottom
+                  { dx: 65, dy: -45 },   // 3. Right mid-top
+                  { dx: 65, dy: 45 },    // 4. Right mid-bottom
+                  { dx: 0, dy: -165 },   // 5. Top
+                  { dx: 0, dy: 165 },    // 6. Bottom
+                  { dx: -65, dy: -115 }, // 7. Left far-top
+                  { dx: -65, dy: 115 },  // 8. Left far-bottom
+                  { dx: 65, dy: -115 },  // 9. Right far-top
+                  { dx: 65, dy: 115 },   // 10. Right far-bottom
                 ];
 
                 return slots.slice(0, count).map((slot, index) => ({
@@ -587,29 +609,30 @@ export default function TableMap({ onBack }: TableMapProps) {
                   </g>
                 );
               } else {
-                // Case B: 2 Mesas de Honor en Vertical (7 to 20 guests)
-                const table1Cy = 385; // Center of table 1
-                const table2Cy = 565; // Center of table 2
+                // Case B: 2 Mesas de Honor Rotadas 90 grados a los lados (7 to 20 guests)
+                const tableCy = 385; // Vertical center
+                const table1Cx = 450; // Left table center
+                const table2Cx = 750; // Right table center
                 
                 const topSeatsCount = Math.ceil(honorCapacity / 2);
                 const bottomSeatsCount = Math.floor(honorCapacity / 2);
 
-                const topChairs = getTablePerimeterChairs(600, table1Cy, topSeatsCount);
-                const bottomChairs = getTablePerimeterChairs(600, table2Cy, bottomSeatsCount);
+                const leftChairs = getTableVerticalPerimeterChairs(table1Cx, tableCy, topSeatsCount);
+                const rightChairs = getTableVerticalPerimeterChairs(table2Cx, tableCy, bottomSeatsCount);
 
                 return (
                   <g className="group/honor-double">
-                    {/* VIP Stage Ring covering both tables */}
+                    {/* VIP Stage Ring covering both rotated tables */}
                     <rect
-                      x="430"
-                      y="320"
-                      width="340"
-                      height="310"
+                      x="360"
+                      y="200"
+                      width="480"
+                      height="370"
                       rx="14"
                       className="fill-transparent stroke-gold/10 stroke-[1] stroke-dasharray-[4,4]"
                     />
 
-                    {/* Table 1 (Top) Group */}
+                    {/* Table 1 (Left) Group */}
                     <g
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={() => handleTableDrop(0)}
@@ -617,7 +640,7 @@ export default function TableMap({ onBack }: TableMapProps) {
                       className="cursor-pointer"
                     >
                       {/* Chairs Table 1 */}
-                      {topChairs.map((chair) => {
+                      {leftChairs.map((chair) => {
                         const chairKey = `0-${chair.seatIndex}`;
                         const assigned = assignments[chairKey];
                         const vipChairRadius = 14;
@@ -654,31 +677,32 @@ export default function TableMap({ onBack }: TableMapProps) {
                             <title>
                               {assigned
                                 ? `Ocupado por: ${assigned.name}`
-                                : `Mesa de Honor 1 - Silla ${chair.seatIndex + 1}`}
+                                : `Mesa de Honor 1 (Izquierda) - Silla ${chair.seatIndex + 1}`}
                             </title>
                           </g>
                         );
                       })}
 
                       <rect
-                        x="450"
-                        y="335"
-                        width="300"
-                        height="100"
+                        x="400"
+                        y="235"
+                        width="100"
+                        height="300"
                         rx="10"
                         className="fill-dark-gray stroke-gold stroke-[3] shadow-[0_0_15px_rgba(212,175,55,0.15)] hover:stroke-gold-hover transition-all duration-300"
                       />
                       <text
-                        x="600"
-                        y="390"
+                        x="450"
+                        y="385"
                         textAnchor="middle"
+                        transform="rotate(-90 450 385)"
                         className="fill-gold font-semibold tracking-[0.12em] text-xs uppercase"
                       >
                         Mesa de Honor 1
                       </text>
                     </g>
 
-                    {/* Table 2 (Bottom) Group */}
+                    {/* Table 2 (Right) Group */}
                     <g
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={() => handleTableDrop(99)}
@@ -686,7 +710,7 @@ export default function TableMap({ onBack }: TableMapProps) {
                       className="cursor-pointer"
                     >
                       {/* Chairs Table 2 */}
-                      {bottomChairs.map((chair) => {
+                      {rightChairs.map((chair) => {
                         const chairKey = `99-${chair.seatIndex}`;
                         const assigned = assignments[chairKey];
                         const vipChairRadius = 14;
@@ -723,24 +747,25 @@ export default function TableMap({ onBack }: TableMapProps) {
                             <title>
                               {assigned
                                 ? `Ocupado por: ${assigned.name}`
-                                : `Mesa de Honor 2 - Silla ${chair.seatIndex + 1}`}
+                                : `Mesa de Honor 2 (Derecha) - Silla ${chair.seatIndex + 1}`}
                             </title>
                           </g>
                         );
                       })}
 
                       <rect
-                        x="450"
-                        y="515"
-                        width="300"
-                        height="100"
+                        x="700"
+                        y="235"
+                        width="100"
+                        height="300"
                         rx="10"
                         className="fill-dark-gray stroke-gold stroke-[3] shadow-[0_0_15px_rgba(212,175,55,0.15)] hover:stroke-gold-hover transition-all duration-300"
                       />
                       <text
-                        x="600"
-                        y="570"
+                        x="750"
+                        y="385"
                         textAnchor="middle"
+                        transform="rotate(-90 750 385)"
                         className="fill-gold font-semibold tracking-[0.12em] text-xs uppercase"
                       >
                         Mesa de Honor 2
