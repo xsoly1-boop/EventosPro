@@ -75,7 +75,7 @@ export default function TableMap({ onBack }: TableMapProps) {
     const isZig = i % 2 === 0;
     tables.push({
       id: i * 2,
-      cx: isZig ? 200 : 260,
+      cx: isZig ? 105 : 296, // 105 for 3px from left wall, 296 for 2px from dance floor
       cy: cy,
       tableNumber: i + 1,
     });
@@ -88,7 +88,7 @@ export default function TableMap({ onBack }: TableMapProps) {
     const isZig = i % 2 === 0;
     tables.push({
       id: i * 2 + 1,
-      cx: isZig ? 1000 : 940,
+      cx: isZig ? 1095 : 904, // 1095 for 3px from right wall, 904 for 2px from dance floor
       cy: cy,
       tableNumber: numLeft + i + 1,
     });
