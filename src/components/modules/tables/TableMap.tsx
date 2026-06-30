@@ -52,6 +52,15 @@ export default function TableMap({ onBack }: TableMapProps) {
 
   // Dynamic tables state
   const [totalTables, setTotalTables] = useState<number>(26);
+  const [honorCapacity, setHonorCapacity] = useState<number>(6);
+
+  const isDoubleHonor = honorCapacity > 6;
+  const startY = isDoubleHonor ? 680 : 500;
+  const endY = 2850;
+
+  const danceFloorMarkers = isDoubleHonor 
+    ? [1000, 1750, 2400] 
+    : [900, 1600, 2300];
 
   // Fixed Balcony tables configuration
   const balconyTables = [
@@ -62,8 +71,6 @@ export default function TableMap({ onBack }: TableMapProps) {
 
   // Generate Table Coordinates dynamically based on state
   const tables: { id: number; cx: number; cy: number; tableNumber: number }[] = [];
-  const startY = 520;
-  const endY = 2850;
 
   const numLeft = Math.ceil(totalTables / 2);
   const numRight = Math.floor(totalTables / 2);
@@ -104,8 +111,14 @@ export default function TableMap({ onBack }: TableMapProps) {
     const guestId = draggedGuestId || selectedGuestId;
     if (!guestId) return;
 
-    // Head table has 6 seats, other tables have 10 seats
-    const chairsCount = tableNumber === 0 ? 6 : 10;
+    // Head table 1 has dynamic seats, head table 2 has dynamic seats, other tables have 10 seats
+    let chairsCount = 10;
+    if (tableNumber === 0) {
+      chairsCount = isDoubleHonor ? Math.ceil(honorCapacity / 2) : honorCapacity;
+    } else if (tableNumber === 99) {
+      chairsCount = Math.floor(honorCapacity / 2);
+    }
+
     let targetSeatIndex = -1;
 
     for (let j = 0; j < chairsCount; j++) {
@@ -127,7 +140,9 @@ export default function TableMap({ onBack }: TableMapProps) {
       }
     } else {
       const tableName = tableNumber === 0 
-        ? "Mesa de Honor" 
+        ? "Mesa de Honor 1" 
+        : tableNumber === 99 
+        ? "Mesa de Honor 2"
         : tableNumber > 100 
         ? `Balcón ${tableNumber - 100}` 
         : `Mesa ${tableNumber}`;
@@ -193,25 +208,49 @@ export default function TableMap({ onBack }: TableMapProps) {
           </div>
 
           {/* Dynamic Tables Controller */}
-          <div className="glass-dark rounded-xl p-4 mb-6 border border-white/5">
-            <span className="text-[10px] text-gold tracking-widest font-semibold uppercase block mb-1">
-              Configuración de Aforo
-            </span>
-            <label className="text-[11px] text-gray-400 font-light block mb-2">
-              Cantidad de Mesas: <span className="text-white font-bold text-xs">{totalTables}</span>
-            </label>
-            <input
-              type="range"
-              min="4"
-              max="26"
-              step="1"
-              value={totalTables}
-              onChange={(e) => setTotalTables(Number(e.target.value))}
-              className="w-full accent-gold bg-white/10 rounded-lg appearance-none h-1 cursor-pointer"
-            />
-            <div className="flex justify-between text-[9px] text-gray-500 mt-1 font-mono">
-              <span>4 Mesas</span>
-              <span>26 Mesas</span>
+          <div className="glass-dark rounded-xl p-4 mb-6 border border-white/5 space-y-4">
+            <div>
+              <span className="text-[10px] text-gold tracking-widest font-semibold uppercase block mb-1">
+                Aforo Salón General
+              </span>
+              <label className="text-[11px] text-gray-400 font-light block mb-2">
+                Cantidad de Mesas: <span className="text-white font-bold text-xs">{totalTables}</span>
+              </label>
+              <input
+                type="range"
+                min="4"
+                max="26"
+                step="1"
+                value={totalTables}
+                onChange={(e) => setTotalTables(Number(e.target.value))}
+                className="w-full accent-gold bg-white/10 rounded-lg appearance-none h-1 cursor-pointer"
+              />
+              <div className="flex justify-between text-[9px] text-gray-500 mt-1 font-mono">
+                <span>4 Mesas</span>
+                <span>26 Mesas</span>
+              </div>
+            </div>
+
+            <div className="border-t border-white/5 pt-3">
+              <span className="text-[10px] text-gold tracking-widest font-semibold uppercase block mb-1">
+                Aforo Mesa de Honor
+              </span>
+              <label className="text-[11px] text-gray-400 font-light block mb-2">
+                Invitados: <span className="text-white font-bold text-xs">{honorCapacity}</span>
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="20"
+                step="1"
+                value={honorCapacity}
+                onChange={(e) => setHonorCapacity(Number(e.target.value))}
+                className="w-full accent-gold bg-white/10 rounded-lg appearance-none h-1 cursor-pointer"
+              />
+              <div className="flex justify-between text-[9px] text-gray-500 mt-1 font-mono">
+                <span>1 Persona</span>
+                <span>20 Personas</span>
+              </div>
             </div>
           </div>
 
@@ -439,99 +478,262 @@ export default function TableMap({ onBack }: TableMapProps) {
               );
             })}
 
-            {/* 1. Cabecera (Mesa Principal - 6 sillas asignables VIP) */}
-            <g
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => handleTableDrop(0)}
-              onClick={() => handleTableClick(0)}
-              className="cursor-pointer group/honor"
-            >
-              {/* VIP Stage Ring */}
-              <rect
-                x="260"
-                y="320"
-                width="680"
-                height="115"
-                rx="14"
-                className="fill-transparent stroke-gold/10 stroke-[1] stroke-dasharray-[4,4]"
-              />
-
-              {/* Render 6 VIP Chairs above the table rect */}
-              {Array.from({ length: 6 }).map((_, seatIndex) => {
-                const chairKey = `0-${seatIndex}`;
-                const assigned = assignments[chairKey];
-                const chairCx = 600 + (seatIndex - 2.5) * 90;
-                const chairCy = 280;
-                const vipChairRadius = 16;
-
-                return (
-                  <g
-                    key={chairKey}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSeatClick(0, seatIndex);
-                    }}
-                    className="cursor-pointer"
-                  >
-                    <circle
-                      cx={chairCx}
-                      cy={chairCy}
-                      r={vipChairRadius}
-                      className={`transition-all duration-300 ${
-                        assigned
-                          ? "fill-gold stroke-gold-hover stroke-[2] shadow-[0_0_10px_#D4AF37]"
-                          : "fill-obsidian stroke-gold/30 hover:stroke-gold stroke-[1]"
-                      }`}
-                    />
-                    {assigned && (
-                      <text
-                        x={chairCx}
-                        y={chairCy + 3}
-                        textAnchor="middle"
-                        className="fill-obsidian font-bold text-[9px] pointer-events-none"
-                      >
-                        {assigned.name.substring(0, 2).toUpperCase()}
-                      </text>
-                    )}
-                    <title>
-                      {assigned
-                        ? `Ocupado por: ${assigned.name}`
-                        : `Mesa de Honor - Silla ${seatIndex + 1}`}
-                    </title>
-                  </g>
-                );
-              })}
-
-              <rect
-                x="275"
-                y="335"
-                width="650"
-                height="90"
-                rx="10"
-                className="fill-dark-gray stroke-gold stroke-[3] shadow-[0_0_20px_rgba(212,175,55,0.15)] group-hover/honor:stroke-gold-hover transition-all duration-300"
-              />
-              <text
-                x="600"
-                y="387"
-                textAnchor="middle"
-                className="fill-gold font-semibold tracking-[0.25em] text-xs uppercase"
+            {/* 1. Cabecera (Mesa Principal de Honor - Dinámica 1 o 2 Mesas en Vertical) */}
+            {!isDoubleHonor ? (
+              // Case A: 1 Single Mesa de Honor (1 to 6 guests)
+              <g
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => handleTableDrop(0)}
+                onClick={() => handleTableClick(0)}
+                className="cursor-pointer group/honor"
               >
-                Mesa Principal de Honor
-              </text>
-            </g>
+                {/* VIP Stage Ring */}
+                <rect
+                  x="430"
+                  y="320"
+                  width="340"
+                  height="130"
+                  rx="14"
+                  className="fill-transparent stroke-gold/10 stroke-[1] stroke-dasharray-[4,4]"
+                />
+
+                {/* Render VIP Chairs above the table rect */}
+                {Array.from({ length: honorCapacity }).map((_, seatIndex) => {
+                  const chairKey = `0-${seatIndex}`;
+                  const assigned = assignments[chairKey];
+                  const chairSpacing = honorCapacity > 4 ? 45 : 60;
+                  const chairCx = 600 + (seatIndex - (honorCapacity - 1) / 2) * chairSpacing;
+                  const chairCy = 280;
+                  const vipChairRadius = 15;
+
+                  return (
+                    <g
+                      key={chairKey}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSeatClick(0, seatIndex);
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <circle
+                        cx={chairCx}
+                        cy={chairCy}
+                        r={vipChairRadius}
+                        className={`transition-all duration-300 ${
+                          assigned
+                            ? "fill-gold stroke-gold-hover stroke-[2] shadow-[0_0_10px_#D4AF37]"
+                            : "fill-obsidian stroke-gold/30 hover:stroke-gold stroke-[1]"
+                        }`}
+                      />
+                      {assigned && (
+                        <text
+                          x={chairCx}
+                          y={chairCy + 3}
+                          textAnchor="middle"
+                          className="fill-obsidian font-bold text-[9px] pointer-events-none"
+                        >
+                          {assigned.name.substring(0, 2).toUpperCase()}
+                        </text>
+                      )}
+                      <title>
+                        {assigned
+                          ? `Ocupado por: ${assigned.name}`
+                          : `Mesa de Honor - Silla ${seatIndex + 1}`}
+                      </title>
+                    </g>
+                  );
+                })}
+
+                <rect
+                  x="450"
+                  y="335"
+                  width="300"
+                  height="100"
+                  rx="10"
+                  className="fill-dark-gray stroke-gold stroke-[3] shadow-[0_0_20px_rgba(212,175,55,0.15)] group-hover/honor:stroke-gold-hover transition-all duration-300"
+                />
+                <text
+                  x="600"
+                  y="390"
+                  textAnchor="middle"
+                  className="fill-gold font-semibold tracking-[0.15em] text-xs uppercase"
+                >
+                  Mesa de Honor
+                </text>
+              </g>
+            ) : (
+              // Case B: 2 Mesas de Honor en Vertical (7 to 20 guests)
+              <g className="group/honor-double">
+                {/* VIP Stage Ring covering both tables */}
+                <rect
+                  x="430"
+                  y="320"
+                  width="340"
+                  height="310"
+                  rx="14"
+                  className="fill-transparent stroke-gold/10 stroke-[1] stroke-dasharray-[4,4]"
+                />
+
+                {/* Table 1 (Top) Group */}
+                <g
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => handleTableDrop(0)}
+                  onClick={() => handleTableClick(0)}
+                  className="cursor-pointer"
+                >
+                  {/* Chairs Table 1 */}
+                  {Array.from({ length: Math.ceil(honorCapacity / 2) }).map((_, seatIndex) => {
+                    const topSeatsCount = Math.ceil(honorCapacity / 2);
+                    const chairKey = `0-${seatIndex}`;
+                    const assigned = assignments[chairKey];
+                    const chairSpacing = topSeatsCount > 6 ? 30 : topSeatsCount > 4 ? 45 : 55;
+                    const chairCx = 600 + (seatIndex - (topSeatsCount - 1) / 2) * chairSpacing;
+                    const chairCy = 280;
+                    const vipChairRadius = 14;
+
+                    return (
+                      <g
+                        key={chairKey}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSeatClick(0, seatIndex);
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <circle
+                          cx={chairCx}
+                          cy={chairCy}
+                          r={vipChairRadius}
+                          className={`transition-all duration-300 ${
+                            assigned
+                              ? "fill-gold stroke-gold-hover stroke-[2] shadow-[0_0_10px_#D4AF37]"
+                              : "fill-obsidian stroke-gold/30 hover:stroke-gold stroke-[1]"
+                          }`}
+                        />
+                        {assigned && (
+                          <text
+                            x={chairCx}
+                            y={chairCy + 3}
+                            textAnchor="middle"
+                            className="fill-obsidian font-bold text-[8px] pointer-events-none"
+                          >
+                            {assigned.name.substring(0, 2).toUpperCase()}
+                          </text>
+                        )}
+                        <title>
+                          {assigned
+                            ? `Ocupado por: ${assigned.name}`
+                            : `Mesa de Honor 1 - Silla ${seatIndex + 1}`}
+                        </title>
+                      </g>
+                    );
+                  })}
+
+                  <rect
+                    x="450"
+                    y="335"
+                    width="300"
+                    height="100"
+                    rx="10"
+                    className="fill-dark-gray stroke-gold stroke-[3] shadow-[0_0_15px_rgba(212,175,55,0.15)] hover:stroke-gold-hover transition-all duration-300"
+                  />
+                  <text
+                    x="600"
+                    y="390"
+                    textAnchor="middle"
+                    className="fill-gold font-semibold tracking-[0.12em] text-xs uppercase"
+                  >
+                    Mesa de Honor 1
+                  </text>
+                </g>
+
+                {/* Table 2 (Bottom) Group */}
+                <g
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => handleTableDrop(99)}
+                  onClick={() => handleTableClick(99)}
+                  className="cursor-pointer"
+                >
+                  {/* Chairs Table 2 */}
+                  {Array.from({ length: Math.floor(honorCapacity / 2) }).map((_, seatIndex) => {
+                    const bottomSeatsCount = Math.floor(honorCapacity / 2);
+                    const chairKey = `99-${seatIndex}`;
+                    const assigned = assignments[chairKey];
+                    const chairSpacing = bottomSeatsCount > 6 ? 30 : bottomSeatsCount > 4 ? 45 : 55;
+                    const chairCx = 600 + (seatIndex - (bottomSeatsCount - 1) / 2) * chairSpacing;
+                    const chairCy = 460;
+                    const vipChairRadius = 14;
+
+                    return (
+                      <g
+                        key={chairKey}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSeatClick(99, seatIndex);
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <circle
+                          cx={chairCx}
+                          cy={chairCy}
+                          r={vipChairRadius}
+                          className={`transition-all duration-300 ${
+                            assigned
+                              ? "fill-gold stroke-gold-hover stroke-[2] shadow-[0_0_10px_#D4AF37]"
+                              : "fill-obsidian stroke-gold/30 hover:stroke-gold stroke-[1]"
+                          }`}
+                        />
+                        {assigned && (
+                          <text
+                            x={chairCx}
+                            y={chairCy + 3}
+                            textAnchor="middle"
+                            className="fill-obsidian font-bold text-[8px] pointer-events-none"
+                          >
+                            {assigned.name.substring(0, 2).toUpperCase()}
+                          </text>
+                        )}
+                        <title>
+                          {assigned
+                            ? `Ocupado por: ${assigned.name}`
+                            : `Mesa de Honor 2 - Silla ${seatIndex + 1}`}
+                        </title>
+                      </g>
+                    );
+                  })}
+
+                  <rect
+                    x="450"
+                    y="515"
+                    width="300"
+                    height="100"
+                    rx="10"
+                    className="fill-dark-gray stroke-gold stroke-[3] shadow-[0_0_15px_rgba(212,175,55,0.15)] hover:stroke-gold-hover transition-all duration-300"
+                  />
+                  <text
+                    x="600"
+                    y="570"
+                    textAnchor="middle"
+                    className="fill-gold font-semibold tracking-[0.12em] text-xs uppercase"
+                  >
+                    Mesa de Honor 2
+                  </text>
+                </g>
+              </g>
+            )}
 
             {/* 2. Pista de Baile Central */}
             <g>
               <rect
                 x="400"
-                y="520"
+                y={startY}
                 width="400"
-                height="2330"
+                height={endY - startY}
                 rx="6"
                 className="fill-zafiro/5 stroke-zafiro/25 stroke-[1] stroke-dasharray-[10,5]"
               />
               {/* Vertical Dance Floor text markers */}
-              {[900, 1600, 2300].map((textY, idx) => (
+              {danceFloorMarkers.map((textY, idx) => (
                 <text
                   key={idx}
                   x="600"
