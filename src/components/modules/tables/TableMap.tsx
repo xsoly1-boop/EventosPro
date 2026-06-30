@@ -55,14 +55,14 @@ export default function TableMap({ onBack }: TableMapProps) {
 
   // Fixed Balcony tables configuration
   const balconyTables = [
-    { id: "balcony-1", cx: 300, cy: 180, tableNumber: 101, displayNum: 1 },
-    { id: "balcony-2", cx: 600, cy: 180, tableNumber: 102, displayNum: 2 },
-    { id: "balcony-3", cx: 900, cy: 180, tableNumber: 103, displayNum: 3 },
+    { id: "balcony-1", cx: 300, cy: 120, tableNumber: 101, displayNum: 1 },
+    { id: "balcony-2", cx: 600, cy: 120, tableNumber: 102, displayNum: 2 },
+    { id: "balcony-3", cx: 900, cy: 120, tableNumber: 103, displayNum: 3 },
   ];
 
   // Generate Table Coordinates dynamically based on state
   const tables: { id: number; cx: number; cy: number; tableNumber: number }[] = [];
-  const startY = 720;
+  const startY = 600;
   const endY = 2850;
 
   const numLeft = Math.ceil(totalTables / 2);
@@ -316,14 +316,14 @@ export default function TableMap({ onBack }: TableMapProps) {
               {/* Dotted border line marking the Balcony area */}
               <line
                 x1="50"
-                y1="320"
+                y1="240"
                 x2="1150"
-                y2="320"
+                y2="240"
                 className="stroke-gold/20 stroke-[2] stroke-dasharray-[6,6]"
               />
               <rect
                 x="500"
-                y="295"
+                y="215"
                 width="200"
                 height="50"
                 rx="4"
@@ -331,7 +331,7 @@ export default function TableMap({ onBack }: TableMapProps) {
               />
               <text
                 x="600"
-                y="325"
+                y="245"
                 textAnchor="middle"
                 className="fill-gold font-semibold tracking-[0.3em] text-[10px] uppercase"
               >
@@ -449,7 +449,7 @@ export default function TableMap({ onBack }: TableMapProps) {
               {/* VIP Stage Ring */}
               <rect
                 x="260"
-                y="420"
+                y="320"
                 width="680"
                 height="115"
                 rx="14"
@@ -461,7 +461,7 @@ export default function TableMap({ onBack }: TableMapProps) {
                 const chairKey = `0-${seatIndex}`;
                 const assigned = assignments[chairKey];
                 const chairCx = 600 + (seatIndex - 2.5) * 90;
-                const chairCy = 380;
+                const chairCy = 280;
                 const vipChairRadius = 16;
 
                 return (
@@ -504,7 +504,7 @@ export default function TableMap({ onBack }: TableMapProps) {
 
               <rect
                 x="275"
-                y="435"
+                y="335"
                 width="650"
                 height="90"
                 rx="10"
@@ -512,7 +512,7 @@ export default function TableMap({ onBack }: TableMapProps) {
               />
               <text
                 x="600"
-                y="487"
+                y="387"
                 textAnchor="middle"
                 className="fill-gold font-semibold tracking-[0.25em] text-xs uppercase"
               >
@@ -524,14 +524,14 @@ export default function TableMap({ onBack }: TableMapProps) {
             <g>
               <rect
                 x="400"
-                y="720"
+                y="600"
                 width="400"
-                height="2150"
+                height="2250"
                 rx="6"
                 className="fill-zafiro/5 stroke-zafiro/25 stroke-[1] stroke-dasharray-[10,5]"
               />
               {/* Vertical Dance Floor text markers */}
-              {[1100, 1700, 2400].map((textY, idx) => (
+              {[1000, 1700, 2400].map((textY, idx) => (
                 <text
                   key={idx}
                   x="600"
