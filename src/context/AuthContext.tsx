@@ -7,7 +7,7 @@ import {
   signOut, 
   onAuthStateChanged 
 } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 
 export type UserRole = "admin" | "client" | "staff" | null;
@@ -95,7 +95,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, pass: string) => {
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, pass);
+      const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+      const firebaseUser = userCredential.user;
+
+      // Auto-assign admin role in Firestore on first login for the master admin email
+      if (email.toLowerCase() === "admin@socialesvip.com" && db) {
+        const userDocRef = doc(db, "users", firebaseUser.uid);
+        await setDoc(userDocRef, {
+          role: "admin",
+          displayName: "Admin Master",
+          email: firebaseUser.email,
+        }, { merge: true });
+      }
     } catch (err) {
       setLoading(false);
       throw err;
