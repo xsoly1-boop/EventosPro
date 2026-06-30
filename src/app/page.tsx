@@ -56,7 +56,7 @@ export default function Home() {
     { id: "finance", label: "Finanzas", icon: WalletCards, roles: ["admin", "dueño"] },
     { id: "timeline", label: "Cronograma", icon: Clock, roles: ["admin", "dueño", "gerencia", "staff"] },
     { id: "scanner", label: "Escáner & Aforo", icon: QrCode, roles: ["admin", "dueño", "gerencia", "host"] },
-    { id: "settings", label: "Personal & Config.", icon: Sliders, roles: ["admin", "dueño"] },
+    { id: "settings", label: "Personal & Config.", icon: Sliders, roles: ["admin", "dueño", "gerencia"] },
   ];
 
   const allowedTabs = navigationItems.filter(item => item.roles.includes(user.role || ""));

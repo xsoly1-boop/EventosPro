@@ -32,7 +32,8 @@ interface StaffNotification {
   name: string;
   role: string;
   category: "Cocina" | "Cabina" | "Animación" | "Valet Parking" | "Meseros" | "Show";
-  offsetHours: number; // hours before start
+  offsetHours: number; // offset value
+  offsetUnit: "horas" | "minutos";
   phone: string;
   status: "pendiente" | "encolado" | "enviado" | "entregado";
   callTimeStr?: string;
@@ -114,45 +115,70 @@ export default function LogisticsTimeline() {
 
   // Initial staff notifications list with predefined offsets
   const [staffCalls, setStaffCalls] = useState<StaffNotification[]>([
-    { id: "s-1", name: "Pedro Ruiz", role: "Chef Ejecutivo", category: "Cocina", offsetHours: 4, phone: "+52 55 1234 5678", status: "pendiente" },
-    { id: "s-2", name: "Carlos Mendoza", role: "DJ Residente", category: "Cabina", offsetHours: 2, phone: "+52 55 2345 6789", status: "pendiente" },
-    { id: "s-3", name: "Sofía Montenegro", role: "Coordinadora", category: "Animación", offsetHours: 1, phone: "+52 55 3456 7890", status: "pendiente" },
-    { id: "s-4", name: "Juan Gómez", role: "Supervisor Parking", category: "Valet Parking", offsetHours: 1, phone: "+52 55 4567 8901", status: "pendiente" },
-    { id: "s-5", name: "Mariana Rojas", role: "Jefa de Servicio", category: "Meseros", offsetHours: 3, phone: "+52 55 5678 9012", status: "pendiente" },
-    { id: "s-6", name: "Eduardo Pérez", role: "Jefe de Bartenders", category: "Show", offsetHours: 0, phone: "+52 55 6789 0123", status: "pendiente" },
+    { id: "s-1", name: "Pedro Ruiz", role: "Chef Ejecutivo", category: "Cocina", offsetHours: 4, offsetUnit: "horas", phone: "+52 55 1234 5678", status: "pendiente" },
+    { id: "s-2", name: "Carlos Mendoza", role: "DJ Residente", category: "Cabina", offsetHours: 2, offsetUnit: "horas", phone: "+52 55 2345 6789", status: "pendiente" },
+    { id: "s-3", name: "Sofía Montenegro", role: "Coordinadora", category: "Animación", offsetHours: 1, offsetUnit: "horas", phone: "+52 55 3456 7890", status: "pendiente" },
+    { id: "s-4", name: "Juan Gómez", role: "Supervisor Parking", category: "Valet Parking", offsetHours: 1, offsetUnit: "horas", phone: "+52 55 4567 8901", status: "pendiente" },
+    { id: "s-5", name: "Mariana Rojas", role: "Jefa de Servicio", category: "Meseros", offsetHours: 3, offsetUnit: "horas", phone: "+52 55 5678 9012", status: "pendiente" },
+    { id: "s-6", name: "Eduardo Pérez", role: "Jefe de Bartenders", category: "Show", offsetHours: 0, offsetUnit: "horas", phone: "+52 55 6789 0123", status: "pendiente" },
   ]);
 
-  // Function to calculate individual call times based on event time and offsets
-  const calculateCallTime = (time: string, offset: number): string => {
+  // Function to calculate individual call times based on event time, offset and unit
+  const calculateCallTime = (time: string, offsetVal: number, offsetUnit: "horas" | "minutos"): string => {
     const [hours, minutes] = time.split(":").map(Number);
-    let targetHour = hours - offset;
-    if (targetHour < 0) targetHour += 24;
-    return `${String(targetHour).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+    let totalMinutes = hours * 60 + minutes;
+    
+    // Convert offset to minutes
+    const offsetInMinutes = offsetUnit === "horas" ? offsetVal * 60 : offsetVal;
+    totalMinutes -= offsetInMinutes;
+    
+    if (totalMinutes < 0) {
+      totalMinutes += 24 * 60; // wrap around day limit
+    }
+    
+    const targetHour = Math.floor(totalMinutes / 60) % 24;
+    const targetMin = totalMinutes % 60;
+    
+    return `${String(targetHour).padStart(2, "0")}:${String(targetMin).padStart(2, "0")}`;
   };
 
   // Re-calculate call times when event time changes, reading custom settings from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const offCocina = Number(localStorage.getItem("svip_offset_Cocina") || "4");
-      const offMeseros = Number(localStorage.getItem("svip_offset_Meseros") || "3");
-      const offCabina = Number(localStorage.getItem("svip_offset_Cabina") || "2");
-      const offAnim = Number(localStorage.getItem("svip_offset_Animacion") || "1");
-      const offValet = Number(localStorage.getItem("svip_offset_Valet") || "1");
-      const offShow = Number(localStorage.getItem("svip_offset_Show") || "0");
+      const offValCocina = Number(localStorage.getItem("svip_offset_val_Cocina") || "4");
+      const offUnitCocina = (localStorage.getItem("svip_offset_unit_Cocina") as any) || "horas";
+
+      const offValMeseros = Number(localStorage.getItem("svip_offset_val_Meseros") || "3");
+      const offUnitMeseros = (localStorage.getItem("svip_offset_unit_Meseros") as any) || "horas";
+
+      const offValCabina = Number(localStorage.getItem("svip_offset_val_Cabina") || "2");
+      const offUnitCabina = (localStorage.getItem("svip_offset_unit_Cabina") as any) || "horas";
+
+      const offValAnim = Number(localStorage.getItem("svip_offset_val_Animacion") || "1");
+      const offUnitAnim = (localStorage.getItem("svip_offset_unit_Animacion") as any) || "horas";
+
+      const offValValet = Number(localStorage.getItem("svip_offset_val_Valet") || "1");
+      const offUnitValet = (localStorage.getItem("svip_offset_unit_Valet") as any) || "horas";
+
+      const offValShow = Number(localStorage.getItem("svip_offset_val_Show") || "0");
+      const offUnitShow = (localStorage.getItem("svip_offset_unit_Show") as any) || "horas";
 
       setStaffCalls(prev => prev.map(call => {
-        let currentOffset = call.offsetHours;
-        if (call.category === "Cocina") currentOffset = offCocina;
-        if (call.category === "Meseros") currentOffset = offMeseros;
-        if (call.category === "Cabina") currentOffset = offCabina;
-        if (call.category === "Animación") currentOffset = offAnim;
-        if (call.category === "Valet Parking") currentOffset = offValet;
-        if (call.category === "Show") currentOffset = offShow;
+        let val = call.offsetHours;
+        let unit: "horas" | "minutos" = call.offsetUnit;
+
+        if (call.category === "Cocina") { val = offValCocina; unit = offUnitCocina; }
+        if (call.category === "Meseros") { val = offValMeseros; unit = offUnitMeseros; }
+        if (call.category === "Cabina") { val = offValCabina; unit = offUnitCabina; }
+        if (call.category === "Animación") { val = offValAnim; unit = offUnitAnim; }
+        if (call.category === "Valet Parking") { val = offValValet; unit = offUnitValet; }
+        if (call.category === "Show") { val = offValShow; unit = offUnitShow; }
 
         return {
           ...call,
-          offsetHours: currentOffset,
-          callTimeStr: calculateCallTime(eventTime, currentOffset)
+          offsetHours: val,
+          offsetUnit: unit,
+          callTimeStr: calculateCallTime(eventTime, val, unit)
         };
       }));
     }
@@ -354,7 +380,7 @@ export default function LogisticsTimeline() {
                         </span>
                       </div>
                       <p className="text-[9px] text-gray-500 font-light">
-                        Llamado: <span className="font-semibold text-gray-300">{call.callTimeStr} hrs</span> ({call.offsetHours}h antes)
+                        Llamado: <span className="font-semibold text-gray-300">{call.callTimeStr} hrs</span> ({call.offsetHours} {call.offsetUnit === "horas" ? "h" : "min"} antes)
                       </p>
                     </div>
 
@@ -412,7 +438,7 @@ export default function LogisticsTimeline() {
                   <div key={call.id} className="flex justify-between items-center text-gray-400 py-1 border-b border-white/5">
                     <span>{call.name} ({call.role})</span>
                     <span className="text-white font-mono font-semibold">
-                      {call.callTimeStr} hrs
+                      {call.callTimeStr} hrs ({call.offsetHours} {call.offsetUnit === "horas" ? "horas" : "minutos"} antes)
                     </span>
                   </div>
                 ))}

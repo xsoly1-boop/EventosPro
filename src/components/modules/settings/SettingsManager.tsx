@@ -17,6 +17,7 @@ import {
   X,
   Pencil
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 interface StaffMember {
   id: string;
@@ -28,6 +29,7 @@ interface StaffMember {
 }
 
 export default function SettingsManager() {
+  const { user } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<"staff" | "salon" | "roles">("staff");
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
   
@@ -54,22 +56,44 @@ export default function SettingsManager() {
   const [securityDeposit, setSecurityDeposit] = useState("1500");
   const [isSaved, setIsSaved] = useState(false);
 
-  // Time Offsets for categories states
-  const [offsetCocina, setOffsetCocina] = useState(4);
-  const [offsetMeseros, setOffsetMeseros] = useState(3);
-  const [offsetCabina, setOffsetCabina] = useState(2);
-  const [offsetAnimacion, setOffsetAnimacion] = useState(1);
-  const [offsetValet, setOffsetValet] = useState(1);
-  const [offsetShow, setOffsetShow] = useState(0);
+  // Time Offsets values and units states
+  const [offsetValCocina, setOffsetValCocina] = useState(4);
+  const [offsetUnitCocina, setOffsetUnitCocina] = useState<"horas" | "minutos">("horas");
+
+  const [offsetValMeseros, setOffsetValMeseros] = useState(3);
+  const [offsetUnitMeseros, setOffsetUnitMeseros] = useState<"horas" | "minutos">("horas");
+
+  const [offsetValCabina, setOffsetValCabina] = useState(2);
+  const [offsetUnitCabina, setOffsetUnitCabina] = useState<"horas" | "minutos">("horas");
+
+  const [offsetValAnimacion, setOffsetValAnimacion] = useState(1);
+  const [offsetUnitAnimacion, setOffsetUnitAnimacion] = useState<"horas" | "minutos">("horas");
+
+  const [offsetValValet, setOffsetValValet] = useState(1);
+  const [offsetUnitValet, setOffsetUnitValet] = useState<"horas" | "minutos">("horas");
+
+  const [offsetValShow, setOffsetValShow] = useState(0);
+  const [offsetUnitShow, setOffsetUnitShow] = useState<"horas" | "minutos">("horas");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setOffsetCocina(Number(localStorage.getItem("svip_offset_Cocina") || "4"));
-      setOffsetMeseros(Number(localStorage.getItem("svip_offset_Meseros") || "3"));
-      setOffsetCabina(Number(localStorage.getItem("svip_offset_Cabina") || "2"));
-      setOffsetAnimacion(Number(localStorage.getItem("svip_offset_Animacion") || "1"));
-      setOffsetValet(Number(localStorage.getItem("svip_offset_Valet") || "1"));
-      setOffsetShow(Number(localStorage.getItem("svip_offset_Show") || "0"));
+      setOffsetValCocina(Number(localStorage.getItem("svip_offset_val_Cocina") || "4"));
+      setOffsetUnitCocina((localStorage.getItem("svip_offset_unit_Cocina") as any) || "horas");
+
+      setOffsetValMeseros(Number(localStorage.getItem("svip_offset_val_Meseros") || "3"));
+      setOffsetUnitMeseros((localStorage.getItem("svip_offset_unit_Meseros") as any) || "horas");
+
+      setOffsetValCabina(Number(localStorage.getItem("svip_offset_val_Cabina") || "2"));
+      setOffsetUnitCabina((localStorage.getItem("svip_offset_unit_Cabina") as any) || "horas");
+
+      setOffsetValAnimacion(Number(localStorage.getItem("svip_offset_val_Animacion") || "1"));
+      setOffsetUnitAnimacion((localStorage.getItem("svip_offset_unit_Animacion") as any) || "horas");
+
+      setOffsetValValet(Number(localStorage.getItem("svip_offset_val_Valet") || "1"));
+      setOffsetUnitValet((localStorage.getItem("svip_offset_unit_Valet") as any) || "horas");
+
+      setOffsetValShow(Number(localStorage.getItem("svip_offset_val_Show") || "0"));
+      setOffsetUnitShow((localStorage.getItem("svip_offset_unit_Show") as any) || "horas");
     }
   }, []);
 
@@ -142,12 +166,23 @@ export default function SettingsManager() {
   const handleSaveSalon = (e: React.FormEvent) => {
     e.preventDefault();
     if (typeof window !== "undefined") {
-      localStorage.setItem("svip_offset_Cocina", String(offsetCocina));
-      localStorage.setItem("svip_offset_Meseros", String(offsetMeseros));
-      localStorage.setItem("svip_offset_Cabina", String(offsetCabina));
-      localStorage.setItem("svip_offset_Animacion", String(offsetAnimacion));
-      localStorage.setItem("svip_offset_Valet", String(offsetValet));
-      localStorage.setItem("svip_offset_Show", String(offsetShow));
+      localStorage.setItem("svip_offset_val_Cocina", String(offsetValCocina));
+      localStorage.setItem("svip_offset_unit_Cocina", offsetUnitCocina);
+
+      localStorage.setItem("svip_offset_val_Meseros", String(offsetValMeseros));
+      localStorage.setItem("svip_offset_unit_Meseros", offsetUnitMeseros);
+
+      localStorage.setItem("svip_offset_val_Cabina", String(offsetValCabina));
+      localStorage.setItem("svip_offset_unit_Cabina", offsetUnitCabina);
+
+      localStorage.setItem("svip_offset_val_Animacion", String(offsetValAnimacion));
+      localStorage.setItem("svip_offset_unit_Animacion", offsetUnitAnimacion);
+
+      localStorage.setItem("svip_offset_val_Valet", String(offsetValValet));
+      localStorage.setItem("svip_offset_unit_Valet", offsetUnitValet);
+
+      localStorage.setItem("svip_offset_val_Show", String(offsetValShow));
+      localStorage.setItem("svip_offset_unit_Show", offsetUnitShow);
     }
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
@@ -193,17 +228,19 @@ export default function SettingsManager() {
             <Users className="h-3.5 w-3.5" />
             Gestionar Personal
           </button>
-          <button
-            onClick={() => setActiveSubTab("roles")}
-            className={`py-1.5 px-4 rounded-md text-xs tracking-wide transition-all duration-300 flex items-center gap-2 ${
-              activeSubTab === "roles"
-                ? "bg-gold text-obsidian font-semibold"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            <ShieldCheck className="h-3.5 w-3.5" />
-            Roles & Permisos
-          </button>
+          {user?.role !== "gerencia" && (
+            <button
+              onClick={() => setActiveSubTab("roles")}
+              className={`py-1.5 px-4 rounded-md text-xs tracking-wide transition-all duration-300 flex items-center gap-2 ${
+                activeSubTab === "roles"
+                  ? "bg-gold text-obsidian font-semibold"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Roles & Permisos
+            </button>
+          )}
           <button
             onClick={() => setActiveSubTab("salon")}
             className={`py-1.5 px-4 rounded-md text-xs tracking-wide transition-all duration-300 flex items-center gap-2 ${
@@ -560,98 +597,164 @@ export default function SettingsManager() {
                   </h4>
                 </div>
                 <p className="text-[11px] text-gray-500 font-light leading-normal">
-                  Define cuántas horas antes del inicio del evento se debe enviar la notificación automática a cada categoría de staff.
+                  Define cuántas horas o minutos antes del inicio del evento se debe enviar la notificación automática a cada categoría de staff.
                 </p>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Cocina */}
                   <div>
                     <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
-                      Cocina (Horas Antes)
+                      Cocina (Desfase)
                     </label>
-                    <input
-                      type="number"
-                      required
-                      min={0}
-                      max={24}
-                      value={offsetCocina}
-                      onChange={(e) => setOffsetCocina(Number(e.target.value))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        required
+                        min={0}
+                        max={60}
+                        value={offsetValCocina}
+                        onChange={(e) => setOffsetValCocina(Number(e.target.value))}
+                        className="w-20 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
+                      />
+                      <select
+                        value={offsetUnitCocina}
+                        onChange={(e) => setOffsetUnitCocina(e.target.value as any)}
+                        className="flex-grow bg-white/5 border border-white/10 rounded-xl px-2 py-2 text-xs text-white focus:outline-none focus:border-gold/30"
+                      >
+                        <option value="horas">Horas antes</option>
+                        <option value="minutos">Minutos antes</option>
+                      </select>
+                    </div>
                   </div>
 
+                  {/* Meseros */}
                   <div>
                     <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
-                      Meseros (Horas Antes)
+                      Meseros (Desfase)
                     </label>
-                    <input
-                      type="number"
-                      required
-                      min={0}
-                      max={24}
-                      value={offsetMeseros}
-                      onChange={(e) => setOffsetMeseros(Number(e.target.value))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        required
+                        min={0}
+                        max={60}
+                        value={offsetValMeseros}
+                        onChange={(e) => setOffsetValMeseros(Number(e.target.value))}
+                        className="w-20 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
+                      />
+                      <select
+                        value={offsetUnitMeseros}
+                        onChange={(e) => setOffsetUnitMeseros(e.target.value as any)}
+                        className="flex-grow bg-white/5 border border-white/10 rounded-xl px-2 py-2 text-xs text-white focus:outline-none focus:border-gold/30"
+                      >
+                        <option value="horas">Horas antes</option>
+                        <option value="minutos">Minutos antes</option>
+                      </select>
+                    </div>
                   </div>
 
+                  {/* Cabina */}
                   <div>
                     <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
-                      Cabina / DJ (Horas Antes)
+                      Cabina / DJ (Desfase)
                     </label>
-                    <input
-                      type="number"
-                      required
-                      min={0}
-                      max={24}
-                      value={offsetCabina}
-                      onChange={(e) => setOffsetCabina(Number(e.target.value))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        required
+                        min={0}
+                        max={60}
+                        value={offsetValCabina}
+                        onChange={(e) => setOffsetValCabina(Number(e.target.value))}
+                        className="w-20 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
+                      />
+                      <select
+                        value={offsetUnitCabina}
+                        onChange={(e) => setOffsetUnitCabina(e.target.value as any)}
+                        className="flex-grow bg-white/5 border border-white/10 rounded-xl px-2 py-2 text-xs text-white focus:outline-none focus:border-gold/30"
+                      >
+                        <option value="horas">Horas antes</option>
+                        <option value="minutos">Minutos antes</option>
+                      </select>
+                    </div>
                   </div>
 
+                  {/* Animacion */}
                   <div>
                     <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
-                      Animación (Horas Antes)
+                      Animación (Desfase)
                     </label>
-                    <input
-                      type="number"
-                      required
-                      min={0}
-                      max={24}
-                      value={offsetAnimacion}
-                      onChange={(e) => setOffsetAnimacion(Number(e.target.value))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        required
+                        min={0}
+                        max={60}
+                        value={offsetValAnimacion}
+                        onChange={(e) => setOffsetValAnimacion(Number(e.target.value))}
+                        className="w-20 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
+                      />
+                      <select
+                        value={offsetUnitAnimacion}
+                        onChange={(e) => setOffsetUnitAnimacion(e.target.value as any)}
+                        className="flex-grow bg-white/5 border border-white/10 rounded-xl px-2 py-2 text-xs text-white focus:outline-none focus:border-gold/30"
+                      >
+                        <option value="horas">Horas antes</option>
+                        <option value="minutos">Minutos antes</option>
+                      </select>
+                    </div>
                   </div>
 
+                  {/* Valet */}
                   <div>
                     <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
-                      Valet Parking (Horas Antes)
+                      Valet Parking (Desfase)
                     </label>
-                    <input
-                      type="number"
-                      required
-                      min={0}
-                      max={24}
-                      value={offsetValet}
-                      onChange={(e) => setOffsetValet(Number(e.target.value))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        required
+                        min={0}
+                        max={60}
+                        value={offsetValValet}
+                        onChange={(e) => setOffsetValValet(Number(e.target.value))}
+                        className="w-20 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
+                      />
+                      <select
+                        value={offsetUnitValet}
+                        onChange={(e) => setOffsetUnitValet(e.target.value as any)}
+                        className="flex-grow bg-white/5 border border-white/10 rounded-xl px-2 py-2 text-xs text-white focus:outline-none focus:border-gold/30"
+                      >
+                        <option value="horas">Horas antes</option>
+                        <option value="minutos">Minutos antes</option>
+                      </select>
+                    </div>
                   </div>
 
+                  {/* Show */}
                   <div>
                     <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
-                      Show / Entretenimiento (Horas Antes)
+                      Show (Desfase)
                     </label>
-                    <input
-                      type="number"
-                      required
-                      min={0}
-                      max={24}
-                      value={offsetShow}
-                      onChange={(e) => setOffsetShow(Number(e.target.value))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        required
+                        min={0}
+                        max={60}
+                        value={offsetValShow}
+                        onChange={(e) => setOffsetValShow(Number(e.target.value))}
+                        className="w-20 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
+                      />
+                      <select
+                        value={offsetUnitShow}
+                        onChange={(e) => setOffsetUnitShow(e.target.value as any)}
+                        className="flex-grow bg-white/5 border border-white/10 rounded-xl px-2 py-2 text-xs text-white focus:outline-none focus:border-gold/30"
+                      >
+                        <option value="horas">Horas antes</option>
+                        <option value="minutos">Minutos antes</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
               </div>
