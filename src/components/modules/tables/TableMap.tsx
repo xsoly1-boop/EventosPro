@@ -99,22 +99,47 @@ export default function TableMap({ onBack }: TableMapProps) {
     setDraggedGuestId(guestId);
   };
 
-  // Handle Drop on Seat (saves to Firestore)
-  const handleSeatDrop = async (tableNumber: number, seatIndex: number) => {
+  // Handle Drop on Table (finds first empty seat and saves to Firestore)
+  const handleTableDrop = async (tableNumber: number) => {
     const guestId = draggedGuestId || selectedGuestId;
     if (!guestId) return;
 
-    try {
-      await assignGuest(guestId, tableNumber, seatIndex);
-    } catch (err) {
-      console.error("Failed to assign seat in Firestore:", err);
-    } finally {
+    // Find first empty seat index (0 to 9)
+    const chairsCount = 10;
+    let targetSeatIndex = -1;
+
+    for (let j = 0; j < chairsCount; j++) {
+      const isOccupied = guests.some((g) => g.tableId === tableNumber && g.seatIndex === j);
+      if (!isOccupied) {
+        targetSeatIndex = j;
+        break;
+      }
+    }
+
+    if (targetSeatIndex !== -1) {
+      try {
+        await assignGuest(guestId, tableNumber, targetSeatIndex);
+      } catch (err) {
+        console.error("Failed to assign guest to table:", err);
+      } finally {
+        setDraggedGuestId(null);
+        setSelectedGuestId(null);
+      }
+    } else {
+      alert(`La Mesa ${tableNumber > 100 ? `Balcón ${tableNumber - 100}` : tableNumber} ya está llena (máx. 10 invitados).`);
       setDraggedGuestId(null);
       setSelectedGuestId(null);
     }
   };
 
-  // Handle click to assign (alternative/fallback for mobile)
+  // Handle click to assign to table (alternative/fallback for mobile)
+  const handleTableClick = async (tableNumber: number) => {
+    if (selectedGuestId) {
+      await handleTableDrop(tableNumber);
+    }
+  };
+
+  // Handle click to unassign from seat
   const handleSeatClick = async (tableNumber: number, seatIndex: number) => {
     const seatKey = `${tableNumber}-${seatIndex}`;
     const existingAssignment = assignments[seatKey];
@@ -125,8 +150,6 @@ export default function TableMap({ onBack }: TableMapProps) {
       } catch (err) {
         console.error("Failed to unassign seat in Firestore:", err);
       }
-    } else if (selectedGuestId) {
-      await handleSeatDrop(tableNumber, seatIndex);
     }
   };
 
@@ -326,7 +349,13 @@ export default function TableMap({ onBack }: TableMapProps) {
               }
 
               return (
-                <g key={table.id} className="group/table">
+                <g 
+                  key={table.id} 
+                  className="group/table"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => handleTableDrop(table.tableNumber)}
+                  onClick={() => handleTableClick(table.tableNumber)}
+                >
                   <circle
                     cx={table.cx}
                     cy={table.cy}
@@ -340,9 +369,10 @@ export default function TableMap({ onBack }: TableMapProps) {
                     return (
                       <g
                         key={chair.key}
-                        onClick={() => handleSeatClick(table.tableNumber, seatIndex)}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={() => handleSeatDrop(table.tableNumber, seatIndex)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSeatClick(table.tableNumber, seatIndex);
+                        }}
                         className="cursor-pointer"
                       >
                         <circle
@@ -465,7 +495,13 @@ export default function TableMap({ onBack }: TableMapProps) {
               }
 
               return (
-                <g key={table.id} className="group/table">
+                <g 
+                  key={table.id} 
+                  className="group/table"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => handleTableDrop(table.tableNumber)}
+                  onClick={() => handleTableClick(table.tableNumber)}
+                >
                   {/* Outer Table Circle Ring */}
                   <circle
                     cx={table.cx}
@@ -477,14 +513,14 @@ export default function TableMap({ onBack }: TableMapProps) {
                   {/* Draw Chairs around the table */}
                   {chairs.map((chair, seatIndex) => {
                     const assigned = assignments[chair.key];
-                    const isDragOver = false; // logic placeholder
 
                     return (
                       <g
                         key={chair.key}
-                        onClick={() => handleSeatClick(table.tableNumber, seatIndex)}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={() => handleSeatDrop(table.tableNumber, seatIndex)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSeatClick(table.tableNumber, seatIndex);
+                        }}
                         className="cursor-pointer"
                       >
                         {/* Chair Seat Circle */}
