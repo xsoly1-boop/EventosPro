@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { MoveLeft, HelpCircle, Users } from "lucide-react";
 import { useEventTables } from "@/hooks/useEventTables";
+import { db } from "@/lib/firebase";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
 
 interface Guest {
   id: string;
@@ -53,6 +55,34 @@ export default function TableMap({ onBack }: TableMapProps) {
   // Dynamic tables state
   const [totalTables, setTotalTables] = useState<number>(26);
   const [honorCapacity, setHonorCapacity] = useState<number>(6);
+
+  // Subscribe to settings from Firestore to sync totalTables and honorCapacity in real-time
+  useEffect(() => {
+    if (!db) return;
+    const docRef = doc(db, "settings", "salon");
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.totalTables !== undefined) setTotalTables(data.totalTables);
+        if (data.honorCapacity !== undefined) setHonorCapacity(data.honorCapacity);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleTotalTablesChange = async (val: number) => {
+    setTotalTables(val);
+    if (db) {
+      await setDoc(doc(db, "settings", "salon"), { totalTables: val }, { merge: true });
+    }
+  };
+
+  const handleHonorCapacityChange = async (val: number) => {
+    setHonorCapacity(val);
+    if (db) {
+      await setDoc(doc(db, "settings", "salon"), { honorCapacity: val }, { merge: true });
+    }
+  };
 
   const isDoubleHonor = honorCapacity > 6;
   const startY = isDoubleHonor ? 580 : 500;
@@ -222,7 +252,7 @@ export default function TableMap({ onBack }: TableMapProps) {
                 max="26"
                 step="1"
                 value={totalTables}
-                onChange={(e) => setTotalTables(Number(e.target.value))}
+                onChange={(e) => handleTotalTablesChange(Number(e.target.value))}
                 className="w-full accent-gold bg-white/10 rounded-lg appearance-none h-1 cursor-pointer"
               />
               <div className="flex justify-between text-[9px] text-gray-500 mt-1 font-mono">
@@ -244,7 +274,7 @@ export default function TableMap({ onBack }: TableMapProps) {
                 max="24"
                 step="1"
                 value={honorCapacity}
-                onChange={(e) => setHonorCapacity(Number(e.target.value))}
+                onChange={(e) => handleHonorCapacityChange(Number(e.target.value))}
                 className="w-full accent-gold bg-white/10 rounded-lg appearance-none h-1 cursor-pointer"
               />
               <div className="flex justify-between text-[9px] text-gray-500 mt-1 font-mono">

@@ -1,7 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FileText, Plus, CheckCircle, Trash2, Edit3, DollarSign, Users, Award } from "lucide-react";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  onSnapshot 
+} from "firebase/firestore";
 
 interface QuoteItem {
   id: string;
@@ -21,34 +29,7 @@ interface Quote {
 }
 
 export default function QuotesManager() {
-  const [quotes, setQuotes] = useState<Quote[]>([
-    {
-      id: "q-1",
-      clientName: "Sofía Ramos",
-      phone: "5598765432",
-      date: "2026-10-18",
-      guestsCount: 200,
-      status: "enviada",
-      items: [
-        { id: "i-1", name: "Banquete premium 3 tiempos", price: 450, qty: 200 },
-        { id: "i-2", name: "DJ, audio e iluminación robótica", price: 15000, qty: 1 },
-        { id: "i-3", name: "Barra de bebidas libre nacional", price: 180, qty: 200 },
-      ],
-    },
-    {
-      id: "q-2",
-      clientName: "Ing. Javier López",
-      phone: "5512345678",
-      date: "2026-12-05",
-      guestsCount: 150,
-      status: "borrador",
-      items: [
-        { id: "i-4", name: "Renta de Salón Imperial", price: 25000, qty: 1 },
-        { id: "i-5", name: "Menú infantil y animación", price: 220, qty: 150 },
-      ],
-    },
-  ]);
-
+  const [quotes, setQuotes] = useState<Quote[]>([]);
   const [activeQuoteId, setActiveQuoteId] = useState<string | null>(null);
   const [clientName, setClientName] = useState("");
   const [guestsCount, setGuestsCount] = useState(150);
@@ -57,15 +38,85 @@ export default function QuotesManager() {
   const [newItemPrice, setNewItemPrice] = useState(0);
   const [newItemQty, setNewItemQty] = useState(1);
 
+  // 1. Subscribe to Firestore Quotes Collection
+  useEffect(() => {
+    if (!db) return;
+
+    const quotesRef = collection(db, "quotes");
+    const unsubscribe = onSnapshot(quotesRef, (snapshot) => {
+      const quotesList: Quote[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        quotesList.push({
+          id: doc.id,
+          clientName: data.clientName || "",
+          phone: data.phone || "",
+          date: data.date || "",
+          guestsCount: data.guestsCount || 150,
+          items: data.items || [],
+          status: data.status || "borrador",
+        });
+      });
+
+      if (snapshot.empty) {
+        // Seed default quotes
+        const defaults: Quote[] = [
+          {
+            id: "q-1",
+            clientName: "Sofía Ramos",
+            phone: "5598765432",
+            date: "2026-10-18",
+            guestsCount: 200,
+            status: "enviada",
+            items: [
+              { id: "i-1", name: "Banquete premium 3 tiempos", price: 450, qty: 200 },
+              { id: "i-2", name: "DJ, audio e iluminación robótica", price: 15000, qty: 1 },
+              { id: "i-3", name: "Barra de bebidas libre nacional", price: 180, qty: 200 },
+            ],
+          },
+          {
+            id: "q-2",
+            clientName: "Ing. Javier López",
+            phone: "5512345678",
+            date: "2026-12-05",
+            guestsCount: 150,
+            status: "borrador",
+            items: [
+              { id: "i-4", name: "Renta de Salón Imperial", price: 25000, qty: 1 },
+              { id: "i-5", name: "Menú infantil y animación", price: 220, qty: 150 },
+            ],
+          },
+        ];
+        defaults.forEach(async (q) => {
+          await setDoc(doc(db, "quotes", q.id), {
+            clientName: q.clientName,
+            phone: q.phone,
+            date: q.date,
+            guestsCount: q.guestsCount,
+            status: q.status,
+            items: q.items,
+          });
+        });
+        setQuotes(defaults);
+      } else {
+        setQuotes(quotesList);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   const activeQuote = quotes.find((q) => q.id === activeQuoteId);
 
   const calculateTotal = (itemsList: QuoteItem[]) => {
     return itemsList.reduce((acc, item) => acc + item.price * item.qty, 0);
   };
 
-  const handleCreateQuote = () => {
+  const handleCreateQuote = async () => {
+    if (!db) return;
+    const newId = `q-${Date.now()}`;
     const newQuote: Quote = {
-      id: `q-${Date.now()}`,
+      id: newId,
       clientName: "Nuevo Prospecto",
       phone: "",
       date: new Date().toISOString().split("T")[0],
@@ -75,8 +126,17 @@ export default function QuotesManager() {
         { id: `i-${Date.now()}-1`, name: "Servicio de Salón Base", price: 20000, qty: 1 },
       ],
     };
-    setQuotes([newQuote, ...quotes]);
-    setActiveQuoteId(newQuote.id);
+    
+    await setDoc(doc(db, "quotes", newId), {
+      clientName: newQuote.clientName,
+      phone: newQuote.phone,
+      date: newQuote.date,
+      guestsCount: newQuote.guestsCount,
+      status: newQuote.status,
+      items: newQuote.items,
+    });
+    
+    setActiveQuoteId(newId);
     loadQuoteData(newQuote);
   };
 
@@ -107,25 +167,22 @@ export default function QuotesManager() {
     setItems(items.filter((item) => item.id !== itemId));
   };
 
-  const handleSaveQuote = () => {
-    if (!activeQuoteId) return;
-    setQuotes(
-      quotes.map((q) =>
-        q.id === activeQuoteId
-          ? { ...q, clientName, guestsCount, items }
-          : q
-      )
-    );
-    alert("Cotización guardada exitosamente.");
+  const handleSaveQuote = async () => {
+    if (!activeQuoteId || !db) return;
+    await setDoc(doc(db, "quotes", activeQuoteId), {
+      clientName,
+      guestsCount,
+      items,
+    }, { merge: true });
+    alert("Cotización guardada exitosamente en la base de datos.");
   };
 
-  const handleApproveQuote = (id: string) => {
-    setQuotes(
-      quotes.map((q) =>
-        q.id === id ? { ...q, status: "aprobada" as const } : q
-      )
-    );
-    alert("Cotización Aprobada. Se ha generado un nuevo Evento Reservado y credenciales para el cliente.");
+  const handleApproveQuote = async (id: string) => {
+    if (!db) return;
+    await setDoc(doc(db, "quotes", id), {
+      status: "aprobada"
+    }, { merge: true });
+    alert("Cotización Aprobada en la base de datos. Se ha generado un nuevo Evento Reservado y credenciales para el cliente.");
   };
 
   return (

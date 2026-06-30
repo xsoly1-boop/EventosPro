@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Calendar as CalendarIcon, 
   ChevronLeft, 
@@ -13,6 +13,14 @@ import {
   CalendarCheck,
   AlertCircle
 } from "lucide-react";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  onSnapshot 
+} from "firebase/firestore";
 
 interface EventReservation {
   id: string;
@@ -31,53 +39,8 @@ export default function CalendarDashboard() {
   const [selectedDateStr, setSelectedDateStr] = useState<string>("2026-06-20");
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // Initial event reservations
-  const [reservations, setReservations] = useState<EventReservation[]>([
-    {
-      id: "1",
-      title: "Boda de Sofía & Alejandro",
-      type: "Boda",
-      date: "2026-06-20",
-      timeStart: "17:00",
-      timeEnd: "02:00",
-      guestsCount: 150,
-      clientName: "Sofía Montenegro",
-      status: "Confirmado"
-    },
-    {
-      id: "2",
-      title: "XV Años de Valeria",
-      type: "XV Años",
-      date: "2026-06-13",
-      timeStart: "18:00",
-      timeEnd: "03:00",
-      guestsCount: 220,
-      clientName: "Ricardo Mendoza",
-      status: "Confirmado"
-    },
-    {
-      id: "3",
-      title: "Cena Anual Corporativa TechCorp",
-      type: "Corporativo",
-      date: "2026-06-27",
-      timeStart: "19:00",
-      timeEnd: "00:00",
-      guestsCount: 180,
-      clientName: "Laura Ortiz (TechCorp)",
-      status: "Pre-reservado"
-    },
-    {
-      id: "4",
-      title: "Graduación Medicina UNAM",
-      type: "Graduación",
-      date: "2026-06-06",
-      timeStart: "20:00",
-      timeEnd: "04:00",
-      guestsCount: 250,
-      clientName: "Dr. Javier Torres",
-      status: "Confirmado"
-    }
-  ]);
+  // Reactive state from Firestore
+  const [reservations, setReservations] = useState<EventReservation[]>([]);
 
   // Modal form states
   const [newTitle, setNewTitle] = useState("");
@@ -86,6 +49,97 @@ export default function CalendarDashboard() {
   const [newTimeEnd, setNewTimeEnd] = useState("02:00");
   const [newGuests, setNewGuests] = useState("150");
   const [newClient, setNewClient] = useState("");
+
+  // 1. Subscribe to Firestore events collection
+  useEffect(() => {
+    if (!db) return;
+
+    const eventsRef = collection(db, "events");
+    const unsubscribe = onSnapshot(eventsRef, (snapshot) => {
+      const list: EventReservation[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        list.push({
+          id: doc.id,
+          title: data.title || "",
+          type: data.type || "Otro",
+          date: data.date || "",
+          timeStart: data.timeStart || "",
+          timeEnd: data.timeEnd || "",
+          guestsCount: data.guestsCount || 150,
+          clientName: data.clientName || "",
+          status: data.status || "Pre-reservado",
+        });
+      });
+
+      if (snapshot.empty) {
+        // Seed default events
+        const defaults: EventReservation[] = [
+          {
+            id: "1",
+            title: "Boda de Sofía & Alejandro",
+            type: "Boda",
+            date: "2026-06-20",
+            timeStart: "17:00",
+            timeEnd: "02:00",
+            guestsCount: 150,
+            clientName: "Sofía Montenegro",
+            status: "Confirmado"
+          },
+          {
+            id: "2",
+            title: "XV Años de Valeria",
+            type: "XV Años",
+            date: "2026-06-13",
+            timeStart: "18:00",
+            timeEnd: "03:00",
+            guestsCount: 220,
+            clientName: "Ricardo Mendoza",
+            status: "Confirmado"
+          },
+          {
+            id: "3",
+            title: "Cena Anual Corporativa TechCorp",
+            type: "Corporativo",
+            date: "2026-06-27",
+            timeStart: "19:00",
+            timeEnd: "00:00",
+            guestsCount: 180,
+            clientName: "Laura Ortiz (TechCorp)",
+            status: "Pre-reservado"
+          },
+          {
+            id: "4",
+            title: "Graduación Medicina UNAM",
+            type: "Graduación",
+            date: "2026-06-06",
+            timeStart: "20:00",
+            timeEnd: "04:00",
+            guestsCount: 250,
+            clientName: "Dr. Javier Torres",
+            status: "Confirmado"
+          }
+        ];
+        defaults.forEach(async (ev) => {
+          await setDoc(doc(db, "events", ev.id), {
+            title: ev.title,
+            type: ev.type,
+            date: ev.date,
+            timeStart: ev.timeStart,
+            timeEnd: ev.timeEnd,
+            guestsCount: ev.guestsCount,
+            clientName: ev.clientName,
+            status: ev.status,
+          });
+        });
+        setReservations(defaults);
+      } else {
+        setReservations(list);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const handlePrevMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
@@ -127,12 +181,13 @@ export default function CalendarDashboard() {
     return reservations.filter(r => r.date === dateStr);
   };
 
-  const handleAddReservation = (e: React.FormEvent) => {
+  const handleAddReservation = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle || !newClient) return;
+    if (!newTitle || !newClient || !db) return;
 
+    const newId = Date.now().toString();
     const newRes: EventReservation = {
-      id: Date.now().toString(),
+      id: newId,
       title: newTitle,
       type: newType,
       date: selectedDateStr,
@@ -143,22 +198,35 @@ export default function CalendarDashboard() {
       status: "Pre-reservado"
     };
 
-    setReservations([...reservations, newRes]);
+    await setDoc(doc(db, "events", newId), {
+      title: newRes.title,
+      type: newRes.type,
+      date: newRes.date,
+      timeStart: newRes.timeStart,
+      timeEnd: newRes.timeEnd,
+      guestsCount: newRes.guestsCount,
+      clientName: newRes.clientName,
+      status: newRes.status,
+    });
+
     setNewTitle("");
     setNewClient("");
     setShowAddModal(false);
   };
 
-  const handleToggleStatus = (id: string) => {
-    setReservations(reservations.map(res => 
-      res.id === id 
-        ? { ...res, status: res.status === "Confirmado" ? "Pre-reservado" : "Confirmado" }
-        : res
-    ));
+  const handleToggleStatus = async (id: string) => {
+    if (!db) return;
+    const res = reservations.find(r => r.id === id);
+    if (!res) return;
+    
+    await setDoc(doc(db, "events", id), {
+      status: res.status === "Confirmado" ? "Pre-reservado" : "Confirmado"
+    }, { merge: true });
   };
 
-  const handleDeleteReservation = (id: string) => {
-    setReservations(reservations.filter(res => res.id !== id));
+  const handleDeleteReservation = async (id: string) => {
+    if (!db) return;
+    await deleteDoc(doc(db, "events", id));
   };
 
   // Get selected day details
@@ -179,206 +247,197 @@ export default function CalendarDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Calendar View */}
         <div className="glass-dark rounded-2xl p-6 border border-white/5 lg:col-span-2 space-y-4">
-          {/* Calendar Header Controls */}
-          <div className="flex items-center justify-between pb-2">
+          <div className="flex items-center justify-between border-b border-white/5 pb-4">
             <h3 className="text-sm font-semibold text-white uppercase tracking-wider flex items-center gap-2">
-              <CalendarIcon className="text-gold h-4 w-4" />
-              {monthYearLabel}
+              <CalendarIcon className="text-gold h-4.5 w-4.5" />
+              Vista Mensual ({monthYearLabel})
             </h3>
-
-            <div className="flex gap-2">
-              <button
+            
+            <div className="flex items-center gap-2">
+              <button 
                 onClick={handlePrevMonth}
-                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-gray-400 hover:text-white transition-all duration-300"
+                className="p-1 bg-white/5 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <button
+              <button 
                 onClick={handleNextMonth}
-                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-gray-400 hover:text-white transition-all duration-300"
+                className="p-1 bg-white/5 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          {/* Weekdays Labels */}
-          <div className="grid grid-cols-7 gap-2 text-center text-[10px] text-gray-500 font-mono uppercase tracking-wider">
-            <span>Dom</span>
-            <span>Lun</span>
-            <span>Mar</span>
-            <span>Mié</span>
-            <span>Jue</span>
-            <span>Vie</span>
-            <span>Sáb</span>
-          </div>
-
-          {/* Days Grid */}
-          <div className="grid grid-cols-7 gap-2">
-            {/* Empty boxes for days of previous month */}
-            {Array.from({ length: firstDayIndex }).map((_, idx) => (
-              <div key={`empty-${idx}`} className="aspect-square bg-transparent" />
+          {/* Grid Table */}
+          <div className="grid grid-cols-7 gap-1 text-center text-xs">
+            {/* Days of week */}
+            {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map(day => (
+              <div key={day} className="text-[9px] text-gray-500 uppercase font-semibold font-mono py-2">
+                {day}
+              </div>
             ))}
 
-            {/* Days in Month */}
+            {/* Empty slots for offset */}
+            {Array.from({ length: firstDayIndex }).map((_, idx) => (
+              <div key={`empty-${idx}`} className="aspect-square bg-white/[0.01] border border-white/[0.02] rounded-lg opacity-40" />
+            ))}
+
+            {/* Calendar Days */}
             {Array.from({ length: daysInMonth }).map((_, idx) => {
-              const day = idx + 1;
+              const dayNum = idx + 1;
+              const dayEvents = getEventsForDay(dayNum);
               const year = currentDate.getFullYear();
               const month = String(currentDate.getMonth() + 1).padStart(2, "0");
-              const dateStr = `${year}-${month}-${String(day).padStart(2, "0")}`;
-              const isSelected = selectedDateStr === dateStr;
-              
-              const dayEvents = getEventsForDay(day);
-              const hasEvents = dayEvents.length > 0;
-              const hasConfirmed = dayEvents.some(e => e.status === "Confirmado");
+              const currentDayStr = `${year}-${month}-${String(dayNum).padStart(2, "0")}`;
+              const isSelected = currentDayStr === selectedDateStr;
 
               return (
-                <button
-                  key={`day-${day}`}
-                  onClick={() => setSelectedDateStr(dateStr)}
-                  className={`aspect-square rounded-xl p-1.5 flex flex-col justify-between border text-left transition-all duration-300 relative group ${
-                    isSelected
-                      ? "bg-gold/10 border-gold text-gold shadow-[0_0_15px_rgba(212,175,55,0.1)]"
-                      : "bg-white/[0.02] border-white/5 text-gray-400 hover:border-white/20 hover:bg-white/5"
+                <div
+                  key={`day-${dayNum}`}
+                  onClick={() => setSelectedDateStr(currentDayStr)}
+                  className={`aspect-square p-1 rounded-lg border transition-all duration-300 cursor-pointer flex flex-col justify-between text-left ${
+                    isSelected 
+                      ? "bg-gold/10 border-gold shadow-[0_2px_10px_rgba(212,175,55,0.06)]"
+                      : "bg-white/5 border-white/[0.03] hover:border-gold/30 hover:bg-white/10"
                   }`}
                 >
-                  <span className={`text-xs ${isSelected ? "font-bold text-gold" : "text-gray-300"}`}>
-                    {day}
+                  <span className={`text-[10px] font-semibold font-mono ${isSelected ? "text-gold" : "text-gray-400"}`}>
+                    {dayNum}
                   </span>
 
-                  {/* Event indicators */}
-                  {hasEvents && (
-                    <div className="flex gap-1 mt-auto">
-                      {dayEvents.slice(0, 3).map((e, eIdx) => (
-                        <div
-                          key={eIdx}
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            e.status === "Confirmado" ? "bg-gold animate-pulse" : "bg-zafiro/80"
+                  {dayEvents.length > 0 && (
+                    <div className="space-y-0.5">
+                      {dayEvents.slice(0, 2).map(ev => (
+                        <div 
+                          key={ev.id} 
+                          className={`text-[8px] font-semibold px-1 rounded truncate leading-tight border ${
+                            ev.type === "Boda" 
+                              ? "bg-gold/10 text-gold border-gold/20" 
+                              : ev.type === "XV Años" 
+                              ? "bg-violet-950/40 text-violet-300 border-violet-500/20" 
+                              : ev.type === "Corporativo"
+                              ? "bg-blue-950/40 text-blue-300 border-blue-500/20"
+                              : "bg-gray-800 text-gray-300 border-gray-700"
                           }`}
-                          title={e.title}
-                        />
+                          title={ev.title}
+                        >
+                          {ev.title}
+                        </div>
                       ))}
+                      {dayEvents.length > 2 && (
+                        <div className="text-[7px] text-gray-500 font-bold text-center">
+                          +{dayEvents.length - 2} más
+                        </div>
+                      )}
                     </div>
                   )}
-                </button>
+                </div>
               );
             })}
           </div>
         </div>
 
-        {/* Sidebar Day Details & Actions */}
-        <div className="space-y-6 lg:col-span-1">
-          {/* Selected Date Details Panel */}
-          <div className="glass-dark rounded-2xl p-6 border border-white/5 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-gray-400 font-mono tracking-wider">
-                {selectedDateStr}
+        {/* Selected Day Reservations Sidebar */}
+        <div className="glass-dark rounded-2xl p-6 border border-white/5 space-y-4 h-fit">
+          <div className="flex items-center justify-between border-b border-white/5 pb-4">
+            <div>
+              <span className="text-[10px] text-gold tracking-widest font-semibold uppercase block">
+                Día Seleccionado
               </span>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="py-1 px-3 bg-gold/10 border border-gold/20 hover:bg-gold/20 text-gold rounded-lg text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-all duration-300"
-              >
-                <Plus className="h-3 w-3" />
-                Agendar
-              </button>
+              <h3 className="text-sm font-semibold text-white font-mono mt-0.5">
+                {selectedDateStr}
+              </h3>
             </div>
-
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
-              Eventos Programados
-            </h3>
-
-            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-              {selectedDayEvents.map((event) => (
-                <div 
-                  key={event.id} 
-                  className="glass p-4 rounded-xl border border-white/5 space-y-3 hover:border-white/10 transition-all duration-300"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h4 className="text-xs font-semibold text-white leading-snug">{event.title}</h4>
-                      <span className="text-[9px] font-mono text-gold/80 block mt-1">
-                        Cliente: {event.clientName}
-                      </span>
-                    </div>
-                    <span className={`px-2 py-0.5 rounded text-[8px] font-semibold uppercase tracking-wider shrink-0 ${
-                      event.status === "Confirmado"
-                        ? "bg-green-500/10 border border-green-500/20 text-green-400"
-                        : "bg-zafiro/15 border border-zafiro/30 text-gold"
-                    }`}>
-                      {event.status}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-400">
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="h-3 w-3 text-gold/60" />
-                      <span>{event.timeStart} - {event.timeEnd} hs</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Users className="h-3 w-3 text-gold/60" />
-                      <span>{event.guestsCount} Aforo</span>
-                    </div>
-                  </div>
-
-                  {/* Actions inside list */}
-                  <div className="flex gap-2 pt-2 border-t border-white/5 justify-between">
-                    <button
-                      onClick={() => handleToggleStatus(event.id)}
-                      className="text-[9px] text-gold/80 hover:text-gold uppercase tracking-wider font-semibold"
-                    >
-                      {event.status === "Confirmado" ? "Pasar a Pre-reserva" : "Confirmar Reserva"}
-                    </button>
-                    <button
-                      onClick={() => handleDeleteReservation(event.id)}
-                      className="text-[9px] text-red-400 hover:text-red-300 uppercase tracking-wider font-semibold"
-                    >
-                      Remover
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {selectedDayEvents.length === 0 && (
-                <div className="py-8 text-center text-gray-500 italic text-xs flex flex-col items-center gap-2">
-                  <AlertCircle className="h-5 w-5 text-gray-600" />
-                  <span>Día disponible para reservaciones.</span>
-                </div>
-              )}
-            </div>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="p-1.5 rounded-lg bg-gold text-obsidian hover:bg-gold-hover transition-colors"
+              title="Reservar Fecha"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
           </div>
 
-          {/* Monthly Summary Statistics Card */}
-          <div className="glass-dark rounded-2xl p-6 border border-white/5 space-y-4">
-            <h3 className="text-xs font-semibold text-white uppercase tracking-wider flex items-center gap-1.5">
-              <CalendarCheck className="text-gold h-4 w-4" />
-              Resumen del Mes
-            </h3>
-            
-            <div className="grid grid-cols-2 gap-3 text-center">
-              <div className="bg-white/[0.02] border border-white/5 p-3 rounded-xl">
-                <span className="text-[9px] text-gray-500 block uppercase tracking-wider">Confirmados</span>
-                <span className="text-lg font-bold text-gold block mt-0.5">
-                  {reservations.filter(r => r.status === "Confirmado" && r.date.startsWith("2026-06")).length}
-                </span>
+          <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+            {selectedDayEvents.map((res) => (
+              <div 
+                key={res.id}
+                className="p-4 rounded-xl bg-obsidian border border-white/5 space-y-3 relative group"
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className={`text-[8px] font-semibold px-2 py-0.5 rounded font-mono uppercase tracking-wider border ${
+                      res.type === "Boda" 
+                        ? "bg-gold/10 text-gold border-gold/20" 
+                        : res.type === "XV Años" 
+                        ? "bg-violet-950/40 text-violet-300 border-violet-500/20" 
+                        : "bg-gray-800 text-gray-400 border-gray-700"
+                    }`}>
+                      {res.type}
+                    </span>
+                    <h4 className="text-xs font-semibold text-white mt-1.5">{res.title}</h4>
+                  </div>
+
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
+                    res.status === "Confirmado" 
+                      ? "bg-green-500/10 text-green-400 border border-green-500/25"
+                      : "bg-amber-500/10 text-amber-400 border border-amber-500/25"
+                  }`}>
+                    {res.status}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-400 border-t border-white/5 pt-2.5">
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3 text-gold/60" />
+                    <span>{res.timeStart} - {res.timeEnd} hrs</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Users className="h-3 w-3 text-gold/60" />
+                    <span>{res.guestsCount} pers.</span>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center border-t border-white/5 pt-2">
+                  <span className="text-[9px] text-gray-500">Host: <span className="text-gray-300 font-light">{res.clientName}</span></span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleToggleStatus(res.id)}
+                      className="p-1 hover:bg-white/5 rounded text-gray-400 hover:text-white transition-colors"
+                      title="Alternar Estado"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteReservation(res.id)}
+                      className="p-1 hover:bg-white/5 rounded text-red-500 hover:text-red-400 transition-colors"
+                      title="Eliminar Evento"
+                    >
+                      <Plus className="h-3.5 w-3.5 rotate-45" />
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="bg-white/[0.02] border border-white/5 p-3 rounded-xl">
-                <span className="text-[9px] text-gray-500 block uppercase tracking-wider">Pre-reservas</span>
-                <span className="text-lg font-bold text-white/80 block mt-0.5">
-                  {reservations.filter(r => r.status === "Pre-reservado" && r.date.startsWith("2026-06")).length}
-                </span>
+            ))}
+
+            {selectedDayEvents.length === 0 && (
+              <div className="p-8 text-center text-gray-500 italic text-xs flex flex-col items-center justify-center border border-dashed border-white/5 rounded-xl">
+                <Info className="h-5 w-5 text-gray-600 mb-2" />
+                <span>Fecha disponible para reservación.</span>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Add Booking Modal Dialog */}
+      {/* Add Reservation Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-obsidian/85 flex items-center justify-center p-4 z-50 animate-fade-in backdrop-blur-sm">
           <div className="glass-dark rounded-2xl border border-gold/20 max-w-md w-full p-6 space-y-4 animate-scale-up">
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
-              <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
-                Nueva Reserva para el {selectedDateStr}
+              <h3 className="text-sm font-semibold text-white uppercase tracking-wider flex items-center gap-2">
+                <CalendarCheck className="text-gold h-4.5 w-4.5" />
+                Reservar Fecha ({selectedDateStr})
               </h3>
               <button 
                 onClick={() => setShowAddModal(false)}
@@ -396,7 +455,7 @@ export default function CalendarDashboard() {
                 <input
                   type="text"
                   required
-                  placeholder="Ej. Boda de Carlos & Diana"
+                  placeholder="Ej. Boda de Carlos & Maria"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30"
@@ -411,7 +470,7 @@ export default function CalendarDashboard() {
                   <select
                     value={newType}
                     onChange={(e) => setNewType(e.target.value as any)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30"
                   >
                     <option value="Boda">Boda</option>
                     <option value="XV Años">XV Años</option>
@@ -430,7 +489,7 @@ export default function CalendarDashboard() {
                     required
                     value={newGuests}
                     onChange={(e) => setNewGuests(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
                   />
                 </div>
               </div>
@@ -441,49 +500,57 @@ export default function CalendarDashboard() {
                     Hora de Inicio
                   </label>
                   <input
-                    type="text"
+                    type="time"
                     required
                     value={newTimeStart}
                     onChange={(e) => setNewTimeStart(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
                   />
                 </div>
 
                 <div>
                   <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
-                    Hora de Finalización
+                    Hora de Fin
                   </label>
                   <input
-                    type="text"
+                    type="time"
                     required
                     value={newTimeEnd}
                     onChange={(e) => setNewTimeEnd(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-mono"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
-                  Nombre del Cliente / Anfitrión
+                  Cliente Anfitrión
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="Ej. Roberto Martínez"
+                  placeholder="Nombre del anfitrión..."
                   value={newClient}
                   onChange={(e) => setNewClient(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30"
                 />
               </div>
 
-              <button
-                type="submit"
-                className="w-full py-3 bg-gold text-obsidian rounded-xl text-xs font-semibold uppercase hover:bg-gold-hover transition-all duration-300 flex items-center justify-center gap-2 active:scale-[0.98] pt-2"
-              >
-                <Plus className="h-4 w-4" />
-                Registrar Pre-reservación
-              </button>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="w-1/2 py-2.5 rounded-lg border border-gray-700 text-gray-400 text-xs font-semibold uppercase hover:bg-white/5 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="w-1/2 py-2.5 bg-gold hover:bg-gold-hover text-obsidian rounded-lg text-xs font-bold uppercase tracking-wider transition-colors shadow-[0_4px_15px_rgba(212,175,55,0.15)]"
+                >
+                  Confirmar Reserva
+                </button>
+              </div>
             </form>
           </div>
         </div>

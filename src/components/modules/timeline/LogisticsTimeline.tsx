@@ -17,6 +17,13 @@ import {
   RotateCcw,
   Sparkles
 } from "lucide-react";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  onSnapshot 
+} from "firebase/firestore";
 
 interface TimelineItem {
   id: string;
@@ -45,73 +52,8 @@ export default function LogisticsTimeline() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isLaunched, setIsLaunched] = useState(false);
 
-  // Initial timeline items
-  const [timeline, setTimeline] = useState<TimelineItem[]>([
-    {
-      id: "t-1",
-      time: "17:00",
-      title: "Arribo del Coordinador",
-      description: "Revisión final de mantelería, vajilla y confirmación del personal de cocina.",
-      responsible: "Coordinador",
-      completed: true,
-    },
-    {
-      id: "t-2",
-      time: "17:30",
-      title: "Montaje técnico DJ & Iluminación",
-      description: "Pruebas de sonido acústico y calibración de luces robóticas móviles.",
-      responsible: "Proveedor DJ",
-      completed: true,
-    },
-    {
-      id: "t-3",
-      time: "18:00",
-      title: "Apertura de Puertas",
-      description: "Hostess listas en entrada con escáner QR. Validación de aforo activa.",
-      responsible: "Hostess / Staff",
-      completed: false,
-    },
-    {
-      id: "t-4",
-      time: "18:30",
-      title: "Cóctel de Bienvenida",
-      description: "Servicio de canapés y bebidas en zona de jardín/vestíbulo.",
-      responsible: "Cocina / Barra",
-      completed: false,
-    },
-    {
-      id: "t-5",
-      time: "19:30",
-      title: "Entrada de Honor de Anfitriones",
-      description: "Música especial activada. Coordinador activa pirotecnia fría interna.",
-      responsible: "Coordinador / DJ",
-      completed: false,
-    },
-    {
-      id: "t-6",
-      time: "20:00",
-      title: "Servicio de Cena (3 tiempos)",
-      description: "Servicio simultáneo por mesas. Coordinador supervisa tiempos de cocina.",
-      responsible: "Cocina / Meseros",
-      completed: false,
-    },
-    {
-      id: "t-7",
-      time: "21:30",
-      title: "Brindis & Vals",
-      description: "Entrega de copas de champaña a invitados. Protocolo de micrófonos listo.",
-      responsible: "Coordinador",
-      completed: false,
-    },
-    {
-      id: "t-8",
-      time: "22:00",
-      title: "Apertura de Pista de Baile",
-      description: "Efectos visuales a máxima potencia. Dj inicia set principal.",
-      responsible: "Proveedor DJ",
-      completed: false,
-    },
-  ]);
+  // Reactive states from Firestore
+  const [timeline, setTimeline] = useState<TimelineItem[]>([]);
 
   // Initial staff notifications list with predefined offsets
   const [staffCalls, setStaffCalls] = useState<StaffNotification[]>([
@@ -123,6 +65,73 @@ export default function LogisticsTimeline() {
     { id: "s-6", name: "Eduardo Pérez", role: "Jefe de Bartenders", category: "Show", offsetHours: 0, offsetUnit: "horas", phone: "+52 55 6789 0123", status: "pendiente" },
     { id: "s-7", name: "Esteban Vega", role: "Fotógrafo Oficial", category: "Fotógrafo", offsetHours: 1, offsetUnit: "horas", phone: "+52 55 7890 1234", status: "pendiente" },
   ]);
+
+  // 1. Subscribe to Timeline Items Collection & config document
+  useEffect(() => {
+    if (!db) return;
+
+    // Timeline Items
+    const timelineRef = collection(db, "timeline");
+    const unsubscribeTimeline = onSnapshot(timelineRef, (snapshot) => {
+      const list: TimelineItem[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        list.push({
+          id: doc.id,
+          time: data.time || "",
+          title: data.title || "",
+          description: data.description || "",
+          responsible: data.responsible || "",
+          completed: data.completed || false,
+        });
+      });
+
+      // Sort timeline items chronologically
+      list.sort((a, b) => a.time.localeCompare(b.time));
+
+      if (snapshot.empty) {
+        // Seed default timeline
+        const defaults: TimelineItem[] = [
+          { id: "t-1", time: "17:00", title: "Arribo del Coordinador", description: "Revisión final de mantelería, vajilla y confirmación del personal de cocina.", responsible: "Coordinador", completed: true },
+          { id: "t-2", time: "17:30", title: "Montaje técnico DJ & Iluminación", description: "Pruebas de sonido acústico y calibración de luces robóticas móviles.", responsible: "Proveedor DJ", completed: true },
+          { id: "t-3", time: "18:00", title: "Apertura de Puertas", description: "Hostess listas en entrada con escáner QR. Validación de aforo activa.", responsible: "Hostess / Staff", completed: false },
+          { id: "t-4", time: "18:30", title: "Cóctel de Bienvenida", description: "Servicio de canapés y bebidas en zona de jardín/vestíbulo.", responsible: "Cocina / Barra", completed: false },
+          { id: "t-5", time: "19:30", title: "Entrada de Honor de Anfitriones", description: "Música especial activada. Coordinador activa pirotecnia fría interna.", responsible: "Coordinador / DJ", completed: false },
+          { id: "t-6", time: "20:00", title: "Servicio de Cena (3 tiempos)", description: "Servicio simultáneo por mesas. Coordinador supervisa tiempos de cocina.", responsible: "Cocina / Meseros", completed: false },
+          { id: "t-7", time: "21:30", title: "Brindis & Vals", description: "Entrega de copas de champaña a invitados. Protocolo de micrófonos listo.", responsible: "Coordinador", completed: false },
+          { id: "t-8", time: "22:00", title: "Apertura de Pista de Baile", description: "Efectos visuales a máxima potencia. Dj inicia set principal.", responsible: "Proveedor DJ", completed: false },
+        ];
+        defaults.forEach(async (item) => {
+          await setDoc(doc(db, "timeline", item.id), {
+            time: item.time,
+            title: item.title,
+            description: item.description,
+            responsible: item.responsible,
+            completed: item.completed,
+          });
+        });
+        setTimeline(defaults);
+      } else {
+        setTimeline(list);
+      }
+    });
+
+    // Timeline Configuration Document
+    const configRef = doc(db, "settings", "timeline_config");
+    const unsubscribeConfig = onSnapshot(configRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.eventTime !== undefined) setEventTime(data.eventTime);
+        if (data.selectedEvent !== undefined) setSelectedEvent(data.selectedEvent);
+        if (data.isLaunched !== undefined) setIsLaunched(data.isLaunched);
+      }
+    });
+
+    return () => {
+      unsubscribeTimeline();
+      unsubscribeConfig();
+    };
+  }, []);
 
   // Function to calculate individual call times based on event time, offset and unit
   const calculateCallTime = (time: string, offsetVal: number, offsetUnit: "horas" | "minutos"): string => {
@@ -189,21 +198,31 @@ export default function LogisticsTimeline() {
     }
   }, [eventTime]);
 
-  const handleToggleComplete = (id: string) => {
-    setTimeline(
-      timeline.map((item) =>
-        item.id === id ? { ...item, completed: !item.completed } : item
-      )
-    );
+  const handleToggleComplete = async (id: string) => {
+    if (!db) return;
+    const item = timeline.find((t) => t.id === id);
+    if (!item) return;
+
+    await setDoc(doc(db, "timeline", id), {
+      completed: !item.completed
+    }, { merge: true });
   };
 
   const handleLaunchConvocatoria = () => {
     setShowConfirmModal(true);
   };
 
-  const handleConfirmLaunch = () => {
+  const handleConfirmLaunch = async () => {
     setShowConfirmModal(false);
     setIsLaunched(true);
+
+    if (db) {
+      await setDoc(doc(db, "settings", "timeline_config"), { 
+        eventTime,
+        selectedEvent,
+        isLaunched: true 
+      }, { merge: true });
+    }
 
     // Set all to queued first
     setStaffCalls(prev => prev.map(call => ({ ...call, status: "encolado" })));
@@ -250,9 +269,28 @@ export default function LogisticsTimeline() {
     }, 7500);
   };
 
-  const handleResetConvocatoria = () => {
+  const handleResetConvocatoria = async () => {
     setIsLaunched(false);
+    if (db) {
+      await setDoc(doc(db, "settings", "timeline_config"), { 
+        isLaunched: false 
+      }, { merge: true });
+    }
     setStaffCalls(prev => prev.map(call => ({ ...call, status: "pendiente" })));
+  };
+
+  const handleEventTimeChange = async (val: string) => {
+    setEventTime(val);
+    if (db) {
+      await setDoc(doc(db, "settings", "timeline_config"), { eventTime: val }, { merge: true });
+    }
+  };
+
+  const handleSelectedEventChange = async (val: string) => {
+    setSelectedEvent(val);
+    if (db) {
+      await setDoc(doc(db, "settings", "timeline_config"), { selectedEvent: val }, { merge: true });
+    }
   };
 
   const totalItems = timeline.length;
@@ -317,7 +355,7 @@ export default function LogisticsTimeline() {
             <select
               disabled={isLaunched}
               value={selectedEvent}
-              onChange={(e) => setSelectedEvent(e.target.value)}
+              onChange={(e) => handleSelectedEventChange(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 disabled:opacity-50"
             >
               <option value="Boda de Sofía & Alejandro">Boda de Sofía & Alejandro</option>
@@ -335,7 +373,7 @@ export default function LogisticsTimeline() {
               type="time"
               disabled={isLaunched}
               value={eventTime}
-              onChange={(e) => setEventTime(e.target.value)}
+              onChange={(e) => handleEventTimeChange(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 disabled:opacity-50 font-mono"
             />
           </div>
@@ -454,14 +492,14 @@ export default function LogisticsTimeline() {
               <button
                 type="button"
                 onClick={() => setShowConfirmModal(false)}
-                className="w-1/2 py-2.5 rounded-lg border border-gray-700 text-gray-400 text-xs font-semibold uppercase hover:bg-white/5 transition-all duration-300"
+                className="w-1/2 py-2.5 rounded-lg border border-gray-700 text-gray-400 text-xs font-semibold uppercase hover:bg-white/5 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={handleConfirmLaunch}
-                className="w-1/2 py-2.5 rounded-lg bg-gold hover:bg-gold-hover text-obsidian text-xs font-bold uppercase tracking-wider transition-all duration-300 shadow-[0_4px_15px_rgba(212,175,55,0.15)]"
+                className="w-1/2 py-2.5 rounded-lg bg-gold hover:bg-gold-hover text-obsidian text-xs font-bold uppercase tracking-wider transition-colors shadow-[0_4px_15px_rgba(212,175,55,0.15)]"
               >
                 Confirmar y Lanzar
               </button>
