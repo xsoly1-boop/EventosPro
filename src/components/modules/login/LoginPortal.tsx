@@ -1,63 +1,45 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Shield, User, QrCode, Sparkles, KeyRound, Mail, Lock, AlertCircle, ArrowRight, Star } from "lucide-react";
+import {
+  Shield, User, QrCode, Sparkles, KeyRound,
+  Mail, Lock, AlertCircle, ArrowRight, Star, ChevronRight
+} from "lucide-react";
 import { useAuth, UserRole } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 
-/* ── Floating orb component ─────────────────────────────── */
-function Orb({ cx, cy, r, delay = 0 }: { cx: string; cy: string; r: number; delay?: number }) {
-  return (
-    <div
-      className="absolute rounded-full pointer-events-none"
-      style={{
-        left: cx, top: cy,
-        width: r * 2, height: r * 2,
-        transform: "translate(-50%,-50%)",
-        background: "radial-gradient(circle, rgba(212,175,55,0.12) 0%, transparent 70%)",
-        animation: `pulse ${3 + delay}s ease-in-out ${delay}s infinite alternate`,
-        filter: "blur(40px)",
-      }}
-    />
-  );
-}
-
-/* ── Card data ───────────────────────────────────────────── */
-const CARDS = [
+/* ── Access row definitions ─────────────────────────────── */
+const ACCESS_ROWS = [
   {
     id: "admin",
     icon: Shield,
-    badge: "Acceso Seguro",
+    eyebrow: "Acceso Seguro",
     title: "Administrador",
-    desc: "Control financiero global, cotización de eventos, gestión de personal y logística del salón.",
+    desc: "Control financiero global, cotizaciones, gestión de personal y logística del salón.",
     action: "admin" as const,
     buttonLabel: "Cuentas de Control",
-    accent: "from-amber-400/20 to-yellow-600/10",
-    glow: "rgba(212,175,55,0.25)",
+    featured: false,
   },
   {
     id: "client",
     icon: User,
-    badge: "Portal Exclusivo",
+    eyebrow: "Portal Exclusivo",
     title: "Anfitrión / Cliente",
-    desc: "Auto-gestión de invitados, planos de mesas interactivos, estado de cuenta y abonos en tiempo real.",
+    desc: "Auto-gestión de invitados, plano de mesas interactivo, estado de cuenta y abonos.",
     action: "host-code" as const,
     buttonLabel: "Código de Anfitrión",
-    accent: "from-amber-300/25 to-gold/10",
-    glow: "rgba(251,191,36,0.30)",
     featured: true,
   },
   {
     id: "staff",
     icon: QrCode,
-    badge: "Acceso Directo",
+    eyebrow: "Acceso Directo",
     title: "Staff de Recepción",
-    desc: "Escáner QR ultra rápido en tiempo real para control de accesos e invitados en la entrada del salón.",
+    desc: "Escáner QR en tiempo real para control de accesos e invitados en recepción.",
     action: "scanner" as const,
     buttonLabel: "Escanear Pases",
-    accent: "from-gold/15 to-amber-500/5",
-    glow: "rgba(212,175,55,0.20)",
+    featured: false,
   },
 ];
 
@@ -79,13 +61,10 @@ export default function LoginPortal() {
     e.preventDefault();
     const code = hostCode.trim();
     if (!code) return;
-    setError("");
-    setLoading(true);
+    setError(""); setLoading(true);
     if (code === "SVIP-2026") {
       localStorage.setItem("svip_client_event_id", "event-123");
-      loginDemo("client");
-      setLoading(false);
-      return;
+      loginDemo("client"); setLoading(false); return;
     }
     if (db) {
       try {
@@ -101,312 +80,333 @@ export default function LoginPortal() {
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
+    setError(""); setLoading(true);
     try {
       await login(email, password);
     } catch (err: any) {
-      if (err.code === "auth/invalid-credential" || err.code === "auth/user-not-found" || err.code === "auth/wrong-password") {
+      if (["auth/invalid-credential","auth/user-not-found","auth/wrong-password"].includes(err.code)) {
         setError("Credenciales incorrectas. Verifica tu correo y contraseña.");
       } else {
         setError("Error de autenticación: " + (err.message || "Inténtalo de nuevo."));
       }
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  const handleCardAction = (card: typeof CARDS[0]) => {
-    if (card.action === "admin") { setAuthRole("admin"); setEmail(""); setPassword(""); setError(""); setActiveForm("auth-fields"); }
-    else if (card.action === "host-code") { setError(""); setHostCode(""); setActiveForm("host-code"); }
-    else if (card.action === "scanner") { window.location.href = "/scanner"; }
+  const handleRowAction = (action: typeof ACCESS_ROWS[0]["action"]) => {
+    if (action === "admin") { setAuthRole("admin"); setEmail(""); setPassword(""); setError(""); setActiveForm("auth-fields"); }
+    else if (action === "host-code") { setError(""); setHostCode(""); setActiveForm("host-code"); }
+    else { window.location.href = "/scanner"; }
   };
 
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12 relative overflow-hidden">
-
-      {/* ── Background image ── */}
+  /* ── LEFT PANEL (shared across all views) ───────────────── */
+  const LeftPanel = () => (
+    <div className="relative hidden lg:flex lg:w-1/2 flex-col justify-between overflow-hidden">
+      {/* Hero image */}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: "url('/login-bg.jpg')" }}
+        className="absolute inset-0 bg-cover bg-center"
+        style={{ backgroundImage: "url('/hero-panel.jpg')" }}
       />
+      {/* Gradient overlays */}
+      <div className="absolute inset-0 bg-black/55" />
+      <div className="absolute inset-0" style={{ background: "linear-gradient(to right, transparent 60%, rgba(10,10,10,0.95))" }} />
+      <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 40% 50%, rgba(212,175,55,0.08) 0%, transparent 65%)" }} />
+      <div className="absolute bottom-0 left-0 right-0 h-48" style={{ background: "linear-gradient(to top, rgba(10,10,10,0.9), transparent)" }} />
 
-      {/* ── Overlay layers ── */}
-      {/* 1. Dark base */}
-      <div className="absolute inset-0 bg-black/70" />
-      {/* 2. Radial vignette — darkens edges */}
-      <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 40%, transparent 20%, rgba(0,0,0,0.75) 100%)" }} />
-      {/* 3. Gold center glow */}
-      <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 30%, rgba(212,175,55,0.07) 0%, transparent 60%)" }} />
-      {/* 4. Bottom fade to full black */}
-      <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-black to-transparent" />
-
-
-
-      {/* ── Branding header ── */}
-      <div
-        className="text-center mb-16 max-w-2xl z-10"
-        style={{ opacity: mounted ? 1 : 0, transform: mounted ? "translateY(0)" : "translateY(20px)", transition: "opacity 0.8s ease, transform 0.8s ease" }}
-      >
-        {/* Logo mark */}
-        <div className="flex items-center justify-center gap-3 mb-6">
-          <div className="relative">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gold/30 to-gold/5 border border-gold/30 flex items-center justify-center shadow-[0_0_20px_rgba(212,175,55,0.3)]">
-              <Sparkles className="text-gold h-5 w-5" />
-            </div>
-            <div className="absolute inset-0 rounded-xl animate-ping border border-gold/20 opacity-30" />
+      {/* Content */}
+      <div className="relative z-10 flex flex-col justify-between h-full p-10">
+        {/* Logo */}
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-lg bg-gold/15 border border-gold/25 flex items-center justify-center shadow-[0_0_15px_rgba(212,175,55,0.25)]">
+            <Sparkles className="h-4 w-4 text-gold" />
           </div>
-          <span className="text-xs font-semibold tracking-[0.35em] text-gold/80 uppercase">
-            SocialesVIP
-          </span>
+          <span className="text-xs font-semibold tracking-[0.3em] text-gold/80 uppercase">SocialesVIP</span>
         </div>
 
-        <h1 className="text-4xl md:text-[3.25rem] font-extralight tracking-tight text-white leading-tight mb-5">
-          Gestión Premium de<br />
-          <span
-            className="font-semibold"
-            style={{ background: "linear-gradient(90deg, #D4AF37, #fff 50%, #D4AF37)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
-          >
-            Eventos Sociales
-          </span>
-        </h1>
+        {/* Center branding */}
+        <div className="space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="h-px w-8 bg-gold/50" />
+            <span className="text-[10px] text-gold/60 tracking-[0.25em] uppercase font-semibold">Gestión Premium</span>
+          </div>
+          <h1 className="text-4xl font-light text-white leading-tight">
+            Eventos Sociales<br />
+            <span className="font-semibold" style={{
+              background: "linear-gradient(90deg, #D4AF37, #FDE68A, #D4AF37)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent"
+            }}>de Alta Distinción</span>
+          </h1>
+          <p className="text-gray-400 text-sm font-light leading-relaxed max-w-xs">
+            Plataforma integral para la planificación, logística y control de accesos de eventos exclusivos.
+          </p>
 
-        <p className="text-gray-400 text-sm font-light max-w-md mx-auto leading-relaxed">
-          Plataforma de alta costura digital para la planificación, logística y control de accesos exclusivos.
-        </p>
+          {/* Stats row */}
+          <div className="flex gap-6 pt-2">
+            {[["500+","Eventos"], ["98%","Satisfacción"], ["24/7","Soporte"]].map(([val, label]) => (
+              <div key={label}>
+                <div className="text-gold font-bold text-lg font-mono">{val}</div>
+                <div className="text-gray-500 text-[10px] uppercase tracking-wider">{label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
 
-        {/* Decorative line */}
-        <div className="flex items-center justify-center gap-4 mt-8">
-          <div className="h-px w-16 bg-gradient-to-r from-transparent to-gold/40" />
-          <Star className="h-3 w-3 text-gold/50 fill-gold/30" />
-          <div className="h-px w-16 bg-gradient-to-l from-transparent to-gold/40" />
+        {/* Footer */}
+        <div className="flex items-center gap-2 text-[10px] text-gray-600 tracking-widest uppercase">
+          <Star className="h-2.5 w-2.5 text-gold/40 fill-gold/20" />
+          <span>© 2026 SocialesVIP · Todos los derechos reservados</span>
         </div>
       </div>
+    </div>
+  );
 
-      {/* ── View 1: Main Cards ── */}
-      {activeForm === "menu" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl w-full z-10">
-          {CARDS.map((card, i) => {
-            const Icon = card.icon;
+  /* ── RIGHT PANEL wrapper ─────────────────────────────────── */
+  const RightPanel = ({ children }: { children: React.ReactNode }) => (
+    <div className="relative flex lg:w-1/2 w-full min-h-screen flex-col justify-center px-8 md:px-14 py-12"
+      style={{ background: "linear-gradient(160deg, #0e0e0e 0%, #080808 100%)" }}>
+      {/* Subtle top-left glow */}
+      <div className="absolute top-0 right-0 w-64 h-64 rounded-full pointer-events-none"
+        style={{ background: "radial-gradient(circle, rgba(212,175,55,0.06) 0%, transparent 70%)", filter: "blur(40px)" }} />
+      {/* Subtle grid */}
+      <div className="absolute inset-0 opacity-[0.025] pointer-events-none"
+        style={{
+          backgroundImage: "linear-gradient(rgba(212,175,55,1) 1px, transparent 1px), linear-gradient(90deg,rgba(212,175,55,1) 1px,transparent 1px)",
+          backgroundSize: "48px 48px"
+        }} />
+      <div className="relative z-10 w-full max-w-md mx-auto">
+        {children}
+      </div>
+    </div>
+  );
+
+  /* ══════════════════════════════════════════════════════════
+     VIEW 1 — Main menu
+  ══════════════════════════════════════════════════════════ */
+  if (activeForm === "menu") return (
+    <div className="flex min-h-screen bg-obsidian">
+      <LeftPanel />
+      <RightPanel>
+        {/* Header */}
+        <div className="mb-10" style={{ opacity: mounted ? 1 : 0, transform: mounted ? "translateY(0)" : "translateY(16px)", transition: "all 0.6s ease" }}>
+          {/* Mobile logo */}
+          <div className="flex items-center gap-2 mb-8 lg:hidden">
+            <div className="w-8 h-8 rounded-lg bg-gold/15 border border-gold/25 flex items-center justify-center">
+              <Sparkles className="h-4 w-4 text-gold" />
+            </div>
+            <span className="text-xs font-semibold tracking-[0.3em] text-gold/80 uppercase">SocialesVIP</span>
+          </div>
+          <p className="text-[10px] text-gold/60 tracking-[0.25em] uppercase font-semibold mb-2">Bienvenido</p>
+          <h2 className="text-2xl font-semibold text-white">Selecciona tu acceso</h2>
+          <p className="text-gray-500 text-xs font-light mt-1.5">Elige el portal que corresponde a tu rol para continuar.</p>
+        </div>
+
+        {/* Access rows */}
+        <div className="space-y-3">
+          {ACCESS_ROWS.map((row, i) => {
+            const Icon = row.icon;
             return (
-              <div
-                key={card.id}
-                className="group relative rounded-2xl p-[1px] cursor-pointer"
+              <button
+                key={row.id}
+                onClick={() => handleRowAction(row.action)}
+                className="group w-full text-left relative rounded-2xl p-[1px] transition-all duration-300 hover:scale-[1.01] active:scale-[0.99]"
                 style={{
-                  background: "linear-gradient(135deg, rgba(212,175,55,0.2), rgba(212,175,55,0.03) 60%, rgba(212,175,55,0.12))",
+                  background: row.featured
+                    ? "linear-gradient(135deg, rgba(212,175,55,0.5), rgba(212,175,55,0.1) 50%, rgba(212,175,55,0.4))"
+                    : "linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02) 50%, rgba(255,255,255,0.06))",
                   opacity: mounted ? 1 : 0,
-                  transform: mounted ? "translateY(0)" : "translateY(30px)",
-                  transition: `opacity 0.7s ease ${0.1 + i * 0.15}s, transform 0.7s ease ${0.1 + i * 0.15}s`,
+                  transform: mounted ? "translateX(0)" : "translateX(20px)",
+                  transition: `opacity 0.5s ease ${0.15 + i * 0.1}s, transform 0.5s ease ${0.15 + i * 0.1}s, scale 0.2s ease`,
                 }}
-                onClick={() => handleCardAction(card)}
               >
                 {/* Glow on hover */}
-                <div
-                  className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl pointer-events-none"
-                  style={{ background: `radial-gradient(ellipse at 50% 0%, ${card.glow} 0%, transparent 70%)` }}
-                />
+                <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-400 pointer-events-none"
+                  style={{ boxShadow: row.featured ? "0 0 30px rgba(212,175,55,0.2)" : "0 0 20px rgba(255,255,255,0.04)" }} />
 
-                {/* Card body */}
-                <div className={`relative h-full rounded-2xl p-7 flex flex-col justify-between overflow-hidden
-                  bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm
-                  group-hover:-translate-y-2 group-hover:shadow-[0_20px_60px_rgba(212,175,55,0.12)]
-                  transition-all duration-500 ease-out
-                  ${card.featured ? "ring-1 ring-gold/20" : ""}
-                `}>
+                <div className={`flex items-center gap-4 rounded-2xl px-5 py-4 transition-colors duration-300 ${
+                  row.featured
+                    ? "bg-gradient-to-r from-gold/[0.12] to-amber-400/[0.06] group-hover:from-gold/[0.18] group-hover:to-amber-400/[0.1]"
+                    : "bg-white/[0.03] group-hover:bg-white/[0.06]"
+                }`}>
+                  {/* Icon */}
+                  <div className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 ${
+                    row.featured
+                      ? "bg-gold/20 border border-gold/30 group-hover:bg-gold/30 shadow-[0_0_15px_rgba(212,175,55,0.2)]"
+                      : "bg-white/5 border border-white/10 group-hover:border-gold/20 group-hover:bg-gold/10"
+                  }`}>
+                    <Icon className={`h-4.5 w-4.5 transition-colors duration-300 ${row.featured ? "text-gold" : "text-gray-400 group-hover:text-gold"}`} style={{ width: "1.1rem", height: "1.1rem" }} />
+                  </div>
 
-                  {/* Featured badge */}
-                  {card.featured && (
-                    <div className="absolute top-4 right-4">
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-gold/80 bg-gold/10 border border-gold/20 px-2 py-0.5 rounded-full">
-                        Popular
+                  {/* Text */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className={`text-[9px] font-semibold tracking-[0.2em] uppercase ${row.featured ? "text-gold/70" : "text-gray-500"}`}>
+                        {row.eyebrow}
                       </span>
+                      {row.featured && (
+                        <span className="text-[8px] font-bold uppercase tracking-widest text-obsidian bg-gold px-1.5 py-0.5 rounded-full">
+                          Popular
+                        </span>
+                      )}
                     </div>
-                  )}
-
-                  {/* Background accent gradient */}
-                  <div className={`absolute -right-10 -top-10 w-36 h-36 rounded-full bg-gradient-to-br ${card.accent} blur-2xl pointer-events-none opacity-60 group-hover:opacity-100 transition-opacity duration-500`} />
-
-                  <div>
-                    {/* Badge */}
-                    <span className="text-[9px] font-semibold tracking-[0.2em] text-gold/60 uppercase block mb-4">
-                      {card.badge}
-                    </span>
-
-                    {/* Icon */}
-                    <div className="relative w-12 h-12 rounded-xl mb-6">
-                      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-gold/20 to-gold/5 border border-gold/20 group-hover:border-gold/40 transition-all duration-500" />
-                      <div className="absolute inset-0 rounded-xl flex items-center justify-center">
-                        <Icon className="text-gold h-5 w-5 group-hover:scale-110 transition-transform duration-300" />
-                      </div>
-                    </div>
-
-                    {/* Title */}
-                    <h3 className="text-lg font-semibold text-white mb-3 group-hover:text-gold transition-colors duration-300">
-                      {card.title}
-                    </h3>
-
-                    {/* Description */}
-                    <p className="text-gray-500 text-sm font-light leading-relaxed mb-8">
-                      {card.desc}
+                    <p className={`text-sm font-semibold transition-colors duration-300 ${row.featured ? "text-white" : "text-gray-200 group-hover:text-white"}`}>
+                      {row.title}
+                    </p>
+                    <p className="text-gray-500 text-[11px] font-light mt-0.5 leading-relaxed line-clamp-1">
+                      {row.desc}
                     </p>
                   </div>
 
-                  {/* CTA Button */}
-                  <div className={`relative flex items-center justify-between px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-300
-                    ${card.featured
-                      ? "bg-gradient-to-r from-gold to-amber-400 text-obsidian shadow-[0_4px_20px_rgba(212,175,55,0.35)] group-hover:shadow-[0_6px_30px_rgba(212,175,55,0.5)]"
-                      : "border border-gold/20 text-gold group-hover:bg-gold/5 group-hover:border-gold/40"
-                    }`}
-                  >
-                    <span>{card.buttonLabel}</span>
-                    <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform duration-300" />
+                  {/* Arrow */}
+                  <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-300 ${
+                    row.featured
+                      ? "bg-gold text-obsidian shadow-[0_2px_12px_rgba(212,175,55,0.4)] group-hover:shadow-[0_4px_20px_rgba(212,175,55,0.6)] group-hover:scale-110"
+                      : "bg-white/5 text-gray-400 group-hover:bg-gold group-hover:text-obsidian group-hover:scale-110"
+                  }`}>
+                    <ChevronRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform duration-200" />
                   </div>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
-      )}
 
-      {/* ── View 2: Host Code Form ── */}
-      {activeForm === "host-code" && (
-        <div className="relative max-w-md w-full z-10">
-          <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-gold/10 to-transparent blur-xl pointer-events-none" />
-          <div className="relative rounded-2xl p-[1px]" style={{ background: "linear-gradient(135deg, rgba(212,175,55,0.3), rgba(212,175,55,0.05) 50%, rgba(212,175,55,0.2))" }}>
-            <div className="rounded-2xl p-8 bg-gradient-to-b from-white/[0.05] to-white/[0.02] backdrop-blur-md">
-
-              <div className="flex flex-col items-center text-center mb-6">
-                <div className="relative w-14 h-14 mb-5">
-                  <div className="absolute inset-0 rounded-xl bg-gold/10 border border-gold/20 animate-pulse" />
-                  <div className="absolute inset-0 rounded-xl flex items-center justify-center">
-                    <KeyRound className="text-gold h-6 w-6" />
-                  </div>
-                </div>
-                <span className="text-[9px] tracking-[0.25em] text-gold/60 uppercase font-semibold mb-2">Portal Anfitrión</span>
-                <h3 className="text-xl font-semibold text-white mb-2">Ingresar Código</h3>
-                <p className="text-gray-400 text-xs font-light leading-relaxed max-w-xs">
-                  Digita tu clave de evento único asignado para acceder a tu panel de gestión.
-                </p>
-              </div>
-
-              <form onSubmit={handleHostSubmit} className="space-y-4">
-                <input
-                  type="text"
-                  value={hostCode}
-                  onChange={(e) => { setHostCode(e.target.value.toUpperCase()); setError(""); }}
-                  placeholder="SVIP-XXXX"
-                  className="w-full px-4 py-3.5 rounded-xl bg-black/40 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-gold/40 text-center tracking-[0.3em] uppercase font-semibold text-sm transition-all duration-300"
-                />
-                {error && (
-                  <div className="flex items-center gap-2 text-red-400 text-xs bg-red-950/30 border border-red-500/20 rounded-xl px-3 py-2.5">
-                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                    <span>{error}</span>
-                  </div>
-                )}
-
-                <div className="flex gap-3 pt-1">
-                  <button type="button" onClick={() => setActiveForm("menu")}
-                    className="w-1/2 py-3 rounded-xl border border-white/10 text-gray-400 text-xs font-semibold uppercase hover:bg-white/5 transition-all duration-300">
-                    Volver
-                  </button>
-                  <button type="submit" disabled={loading}
-                    className="w-1/2 py-3 rounded-xl bg-gradient-to-r from-gold to-amber-400 text-obsidian text-xs font-bold uppercase tracking-wider transition-all duration-300 shadow-[0_4px_20px_rgba(212,175,55,0.3)] hover:shadow-[0_6px_30px_rgba(212,175,55,0.5)] disabled:opacity-50">
-                    {loading ? "Verificando..." : "Acceder"}
-                  </button>
-                </div>
-              </form>
-            </div>
+        {/* Divider + footer */}
+        <div className="mt-10 pt-6 border-t border-white/5 flex items-center justify-between">
+          <span className="text-[10px] text-gray-600 font-light">Plataforma segura · SSL</span>
+          <div className="flex gap-1">
+            {[0,1,2].map(i => (
+              <div key={i} className="w-1 h-1 rounded-full bg-gold/30" style={{ animation: `pulse 2s ease ${i*0.3}s infinite` }} />
+            ))}
           </div>
         </div>
-      )}
+      </RightPanel>
+    </div>
+  );
 
-      {/* ── View 3: Admin Auth Form ── */}
-      {activeForm === "auth-fields" && (
-        <div className="relative max-w-md w-full z-10">
-          <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-gold/8 to-transparent blur-xl pointer-events-none" />
-          <div className="relative rounded-2xl p-[1px]" style={{ background: "linear-gradient(135deg, rgba(212,175,55,0.25), rgba(212,175,55,0.04) 50%, rgba(212,175,55,0.18))" }}>
-            <div className="rounded-2xl p-8 bg-gradient-to-b from-white/[0.05] to-white/[0.02] backdrop-blur-md">
+  /* ══════════════════════════════════════════════════════════
+     VIEW 2 — Host Code form
+  ══════════════════════════════════════════════════════════ */
+  if (activeForm === "host-code") return (
+    <div className="flex min-h-screen bg-obsidian">
+      <LeftPanel />
+      <RightPanel>
+        <button onClick={() => setActiveForm("menu")}
+          className="flex items-center gap-1.5 text-[10px] text-gray-500 hover:text-gold uppercase tracking-widest font-semibold mb-10 transition-colors duration-200">
+          <ChevronRight className="h-3 w-3 rotate-180" />
+          Volver al menú
+        </button>
 
-              <div className="flex flex-col items-center text-center mb-6">
-                <div className="relative w-14 h-14 mb-5">
-                  <div className="absolute inset-0 rounded-xl bg-gold/10 border border-gold/20" />
-                  <div className="absolute inset-0 rounded-xl flex items-center justify-center">
-                    <Shield className="text-gold h-6 w-6" />
-                  </div>
-                </div>
-                <span className="text-[9px] tracking-[0.25em] text-gold/60 uppercase font-semibold mb-2">Acceso Seguro</span>
-                <h3 className="text-xl font-semibold text-white mb-2">
-                  {authRole === "admin" ? "Administrador" : "Recepción"}
-                </h3>
-                <p className="text-gray-400 text-xs font-light leading-relaxed max-w-xs">
-                  Ingresa tus credenciales registradas para acceder al sistema.
-                </p>
-              </div>
+        <div className="mb-8">
+          <div className="w-14 h-14 rounded-2xl bg-gold/10 border border-gold/20 flex items-center justify-center mb-5 shadow-[0_0_20px_rgba(212,175,55,0.15)]">
+            <KeyRound className="text-gold h-6 w-6" />
+          </div>
+          <p className="text-[10px] text-gold/60 tracking-[0.25em] uppercase font-semibold mb-1.5">Portal Anfitrión</p>
+          <h2 className="text-2xl font-semibold text-white mb-2">Ingresar Código</h2>
+          <p className="text-gray-500 text-xs font-light leading-relaxed">
+            Introduce la clave de evento única asignada por el organizador del salón.
+          </p>
+        </div>
 
-              <form onSubmit={handleAuthSubmit} className="space-y-3">
-                {error && (
-                  <div className="flex items-start gap-2 text-red-400 text-xs bg-red-950/30 border border-red-500/20 rounded-xl px-3 py-2.5">
-                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                    <span>{error}</span>
-                  </div>
-                )}
+        <form onSubmit={handleHostSubmit} className="space-y-4">
+          <div>
+            <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold block mb-2">Código de Evento</label>
+            <input
+              type="text"
+              value={hostCode}
+              onChange={(e) => { setHostCode(e.target.value.toUpperCase()); setError(""); }}
+              placeholder="SVIP-XXXX"
+              autoFocus
+              className="w-full px-5 py-4 rounded-xl bg-white/[0.04] border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-gold/40 focus:bg-white/[0.06] text-center tracking-[0.3em] uppercase font-semibold text-sm transition-all duration-300"
+            />
+          </div>
 
-                <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                  <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                    placeholder="correo@ejemplo.com"
-                    className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-black/40 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-gold/40 text-xs transition-all duration-300" />
-                </div>
+          {error && (
+            <div className="flex items-center gap-2.5 text-red-400 text-xs bg-red-950/30 border border-red-500/15 rounded-xl px-4 py-3">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
 
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                  <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-black/40 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-gold/40 text-xs transition-all duration-300" />
-                </div>
+          <button type="submit" disabled={loading}
+            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-gold to-amber-400 text-obsidian text-xs font-bold uppercase tracking-wider transition-all duration-300 shadow-[0_4px_20px_rgba(212,175,55,0.25)] hover:shadow-[0_6px_30px_rgba(212,175,55,0.45)] disabled:opacity-50 flex items-center justify-center gap-2">
+            {loading
+              ? <><div className="w-3.5 h-3.5 border-2 border-obsidian border-t-transparent rounded-full animate-spin" /><span>Verificando...</span></>
+              : <><span>Acceder al Panel</span><ArrowRight className="h-3.5 w-3.5" /></>
+            }
+          </button>
+        </form>
+      </RightPanel>
+    </div>
+  );
 
-                <div className="space-y-2 pt-2">
-                  <button type="submit" disabled={loading}
-                    className="w-full py-3.5 rounded-xl bg-gradient-to-r from-gold to-amber-400 text-obsidian text-xs font-bold uppercase tracking-wider transition-all duration-300 shadow-[0_4px_20px_rgba(212,175,55,0.3)] hover:shadow-[0_6px_30px_rgba(212,175,55,0.5)] flex items-center justify-center gap-2 disabled:opacity-50">
-                    {loading
-                      ? <><div className="w-4 h-4 border-2 border-obsidian border-t-transparent rounded-full animate-spin" /><span>Iniciando...</span></>
-                      : <span>Iniciar Sesión</span>
-                    }
-                  </button>
+  /* ══════════════════════════════════════════════════════════
+     VIEW 3 — Admin auth form
+  ══════════════════════════════════════════════════════════ */
+  return (
+    <div className="flex min-h-screen bg-obsidian">
+      <LeftPanel />
+      <RightPanel>
+        <button onClick={() => setActiveForm("menu")}
+          className="flex items-center gap-1.5 text-[10px] text-gray-500 hover:text-gold uppercase tracking-widest font-semibold mb-10 transition-colors duration-200">
+          <ChevronRight className="h-3 w-3 rotate-180" />
+          Volver al menú
+        </button>
 
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => setActiveForm("menu")}
-                      className="w-1/2 py-2.5 rounded-xl border border-white/10 text-gray-400 text-xs font-semibold uppercase hover:bg-white/5 transition-all duration-300">
-                      Volver
-                    </button>
-                    <button type="button" onClick={() => loginDemo(authRole)}
-                      className="w-1/2 py-2.5 rounded-xl border border-gold/20 text-gold text-xs font-semibold uppercase hover:bg-gold/5 hover:border-gold/30 transition-all duration-300">
-                      Entrar Demo
-                    </button>
-                  </div>
-                </div>
-              </form>
+        <div className="mb-8">
+          <div className="w-14 h-14 rounded-2xl bg-gold/10 border border-gold/20 flex items-center justify-center mb-5 shadow-[0_0_20px_rgba(212,175,55,0.15)]">
+            <Shield className="text-gold h-6 w-6" />
+          </div>
+          <p className="text-[10px] text-gold/60 tracking-[0.25em] uppercase font-semibold mb-1.5">Acceso Administrativo</p>
+          <h2 className="text-2xl font-semibold text-white mb-2">Iniciar Sesión</h2>
+          <p className="text-gray-500 text-xs font-light leading-relaxed">
+            Ingresa tus credenciales registradas para acceder al sistema de gestión.
+          </p>
+        </div>
+
+        <form onSubmit={handleAuthSubmit} className="space-y-3">
+          {error && (
+            <div className="flex items-start gap-2.5 text-red-400 text-xs bg-red-950/30 border border-red-500/15 rounded-xl px-4 py-3 mb-2">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div>
+            <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold block mb-2">Correo Electrónico</label>
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="correo@ejemplo.com" autoFocus
+                className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-gold/40 focus:bg-white/[0.06] text-xs transition-all duration-300" />
             </div>
           </div>
-        </div>
-      )}
 
-      {/* ── Footer ── */}
-      <div
-        className="mt-20 z-10 text-center"
-        style={{ opacity: mounted ? 1 : 0, transition: "opacity 1s ease 0.5s" }}
-      >
-        <p className="text-[10px] text-gray-600 tracking-[0.2em] uppercase">
-          © 2026 SocialesVIP · Todos los derechos reservados
-        </p>
-      </div>
+          <div>
+            <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold block mb-2">Contraseña</label>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-gold/40 focus:bg-white/[0.06] text-xs transition-all duration-300" />
+            </div>
+          </div>
 
-      <style jsx>{`
-        @keyframes pulse {
-          from { transform: translate(-50%,-50%) scale(1); opacity: 0.6; }
-          to   { transform: translate(-50%,-50%) scale(1.15); opacity: 1; }
-        }
-      `}</style>
+          <div className="pt-2 space-y-2.5">
+            <button type="submit" disabled={loading}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-gold to-amber-400 text-obsidian text-xs font-bold uppercase tracking-wider transition-all duration-300 shadow-[0_4px_20px_rgba(212,175,55,0.25)] hover:shadow-[0_6px_30px_rgba(212,175,55,0.45)] flex items-center justify-center gap-2 disabled:opacity-50">
+              {loading
+                ? <><div className="w-3.5 h-3.5 border-2 border-obsidian border-t-transparent rounded-full animate-spin" /><span>Iniciando sesión...</span></>
+                : <><span>Iniciar Sesión</span><ArrowRight className="h-3.5 w-3.5" /></>
+              }
+            </button>
+
+            <button type="button" onClick={() => loginDemo(authRole)}
+              className="w-full py-3 rounded-xl border border-white/8 text-gray-400 text-xs font-semibold uppercase hover:bg-white/[0.04] hover:border-gold/20 hover:text-gold transition-all duration-300">
+              Entrar como Demo
+            </button>
+          </div>
+        </form>
+      </RightPanel>
     </div>
   );
 }
