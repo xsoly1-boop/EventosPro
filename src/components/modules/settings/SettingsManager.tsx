@@ -15,7 +15,8 @@ import {
   Building,
   Check,
   X,
-  Pencil
+  Pencil,
+  Lock
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -33,6 +34,8 @@ export default function SettingsManager() {
   const [activeSubTab, setActiveSubTab] = useState<"staff" | "salon" | "roles">("staff");
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
   
+  const isGlobalEditable = user?.role === "admin" || user?.role === "dueño";
+
   // Mock Staff Members Data with Categories/Tags
   const [staff, setStaff] = useState<StaffMember[]>([
     { id: "1", name: "Sofía Montenegro", role: "Coordinadora", category: "Animación", email: "sofia.m@socialesvip.com", status: "Activo" },
@@ -75,6 +78,13 @@ export default function SettingsManager() {
   const [offsetValShow, setOffsetValShow] = useState(0);
   const [offsetUnitShow, setOffsetUnitShow] = useState<"horas" | "minutos">("horas");
 
+  // Editable Physical Salon Limits (Only by dueño / admin)
+  const [salonWidth, setSalonWidth] = useState(12);
+  const [salonLength, setSalonLength] = useState(30);
+  const [danceFloorWidth, setDanceFloorWidth] = useState(4.0);
+  const [balconyTablesCount, setBalconyTablesCount] = useState(3);
+  const [balconyMarginPx, setBalconyMarginPx] = useState(5);
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       setOffsetValCocina(Number(localStorage.getItem("svip_offset_val_Cocina") || "4"));
@@ -94,6 +104,13 @@ export default function SettingsManager() {
 
       setOffsetValShow(Number(localStorage.getItem("svip_offset_val_Show") || "0"));
       setOffsetUnitShow((localStorage.getItem("svip_offset_unit_Show") as any) || "horas");
+
+      // Load Physical Limits
+      setSalonWidth(Number(localStorage.getItem("svip_param_salonWidth") || "12"));
+      setSalonLength(Number(localStorage.getItem("svip_param_salonLength") || "30"));
+      setDanceFloorWidth(Number(localStorage.getItem("svip_param_danceFloorWidth") || "4"));
+      setBalconyTablesCount(Number(localStorage.getItem("svip_param_balconyTablesCount") || "3"));
+      setBalconyMarginPx(Number(localStorage.getItem("svip_param_balconyMarginPx") || "5"));
     }
   }, []);
 
@@ -166,6 +183,7 @@ export default function SettingsManager() {
   const handleSaveSalon = (e: React.FormEvent) => {
     e.preventDefault();
     if (typeof window !== "undefined") {
+      // Save offsets
       localStorage.setItem("svip_offset_val_Cocina", String(offsetValCocina));
       localStorage.setItem("svip_offset_unit_Cocina", offsetUnitCocina);
 
@@ -183,6 +201,15 @@ export default function SettingsManager() {
 
       localStorage.setItem("svip_offset_val_Show", String(offsetValShow));
       localStorage.setItem("svip_offset_unit_Show", offsetUnitShow);
+
+      // Save Physical Limits if user role has authorization
+      if (isGlobalEditable) {
+        localStorage.setItem("svip_param_salonWidth", String(salonWidth));
+        localStorage.setItem("svip_param_salonLength", String(salonLength));
+        localStorage.setItem("svip_param_danceFloorWidth", String(danceFloorWidth));
+        localStorage.setItem("svip_param_balconyTablesCount", String(balconyTablesCount));
+        localStorage.setItem("svip_param_balconyMarginPx", String(balconyMarginPx));
+      }
     }
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
@@ -783,36 +810,134 @@ export default function SettingsManager() {
             </form>
           </div>
 
-          {/* Salon Current Physical Limits (Read Only Status) */}
+          {/* Salon Current Physical Limits Form / Display */}
           <div className="glass-dark rounded-2xl p-6 border border-white/5 lg:col-span-1 space-y-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Maximize2 className="text-gold h-4 w-4" />
-              <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
-                Límites Físicos Activos
-              </h3>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Maximize2 className="text-gold h-4 w-4" />
+                <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
+                  Límites Físicos Activos
+                </h3>
+              </div>
+              {!isGlobalEditable && (
+                <span title="Solo lectura para Gerencia">
+                  <Lock className="text-gray-600 h-3.5 w-3.5" />
+                </span>
+              )}
             </div>
 
             <div className="space-y-4 text-xs font-light text-gray-400">
-              <div className="flex justify-between border-b border-white/5 pb-2">
-                <span>Ancho del Salón</span>
-                <span className="text-white font-mono font-semibold">12 metros</span>
+              {/* Ancho del Salón */}
+              <div className="border-b border-white/5 pb-3">
+                <div className="flex justify-between items-center mb-1">
+                  <span>Ancho del Salón</span>
+                  {!isGlobalEditable && (
+                    <span className="text-white font-mono font-semibold">{salonWidth} metros</span>
+                  )}
+                </div>
+                {isGlobalEditable && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={salonWidth}
+                      onChange={(e) => setSalonWidth(Number(e.target.value))}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-gold/30 font-mono text-right"
+                    />
+                    <span className="text-[10px] text-gray-500">mts</span>
+                  </div>
+                )}
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
-                <span>Largo del Salón</span>
-                <span className="text-white font-mono font-semibold">30 metros</span>
+
+              {/* Largo del Salón */}
+              <div className="border-b border-white/5 pb-3">
+                <div className="flex justify-between items-center mb-1">
+                  <span>Largo del Salón</span>
+                  {!isGlobalEditable && (
+                    <span className="text-white font-mono font-semibold">{salonLength} metros</span>
+                  )}
+                </div>
+                {isGlobalEditable && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={salonLength}
+                      onChange={(e) => setSalonLength(Number(e.target.value))}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-gold/30 font-mono text-right"
+                    />
+                    <span className="text-[10px] text-gray-500">mts</span>
+                  </div>
+                )}
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
-                <span>Pista de Baile</span>
-                <span className="text-white font-mono font-semibold">4.0 metros (Central)</span>
+
+              {/* Pista de Baile */}
+              <div className="border-b border-white/5 pb-3">
+                <div className="flex justify-between items-center mb-1">
+                  <span>Pista de Baile</span>
+                  {!isGlobalEditable && (
+                    <span className="text-white font-mono font-semibold">{danceFloorWidth} metros (Central)</span>
+                  )}
+                </div>
+                {isGlobalEditable && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={danceFloorWidth}
+                      onChange={(e) => setDanceFloorWidth(Number(e.target.value))}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-gold/30 font-mono text-right"
+                    />
+                    <span className="text-[10px] text-gray-500">mts</span>
+                  </div>
+                )}
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
-                <span>Mesas de Balcón</span>
-                <span className="text-white font-mono font-semibold">3 Mesas (Fijas)</span>
+
+              {/* Mesas de Balcón */}
+              <div className="border-b border-white/5 pb-3">
+                <div className="flex justify-between items-center mb-1">
+                  <span>Mesas de Balcón</span>
+                  {!isGlobalEditable && (
+                    <span className="text-white font-mono font-semibold">{balconyTablesCount} Mesas (Fijas)</span>
+                  )}
+                </div>
+                {isGlobalEditable && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={balconyTablesCount}
+                      onChange={(e) => setBalconyTablesCount(Number(e.target.value))}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-gold/30 font-mono text-right"
+                    />
+                    <span className="text-[10px] text-gray-500">uds</span>
+                  </div>
+                )}
               </div>
-              <div className="flex justify-between pb-2">
-                <span>Aforo Balcón Margen</span>
-                <span className="text-white font-mono font-semibold">5 px (Estricto)</span>
+
+              {/* Aforo Balcón Margen */}
+              <div className="pb-3">
+                <div className="flex justify-between items-center mb-1">
+                  <span>Aforo Balcón Margen</span>
+                  {!isGlobalEditable && (
+                    <span className="text-white font-mono font-semibold">{balconyMarginPx} px (Estricto)</span>
+                  )}
+                </div>
+                {isGlobalEditable && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={balconyMarginPx}
+                      onChange={(e) => setBalconyMarginPx(Number(e.target.value))}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-gold/30 font-mono text-right"
+                    />
+                    <span className="text-[10px] text-gray-500">px</span>
+                  </div>
+                )}
               </div>
+
+              {!isGlobalEditable && (
+                <p className="text-[9px] text-gray-500 italic mt-2 leading-relaxed">
+                  * Los límites físicos solo son editables por el Dueño o Admin Master del sistema.
+                </p>
+              )}
             </div>
           </div>
         </div>
