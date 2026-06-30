@@ -75,7 +75,7 @@ export default function TableMap({ onBack }: TableMapProps) {
     const isZig = i % 2 === 0;
     tables.push({
       id: i * 2,
-      cx: isZig ? 280 : 350,
+      cx: isZig ? 200 : 260,
       cy: cy,
       tableNumber: i + 1,
     });
@@ -88,7 +88,7 @@ export default function TableMap({ onBack }: TableMapProps) {
     const isZig = i % 2 === 0;
     tables.push({
       id: i * 2 + 1,
-      cx: isZig ? 920 : 850,
+      cx: isZig ? 1000 : 940,
       cy: cy,
       tableNumber: numLeft + i + 1,
     });
@@ -523,9 +523,9 @@ export default function TableMap({ onBack }: TableMapProps) {
             {/* 2. Pista de Baile Central */}
             <g>
               <rect
-                x="500"
+                x="400"
                 y="720"
-                width="200"
+                width="400"
                 height="2150"
                 rx="6"
                 className="fill-zafiro/5 stroke-zafiro/25 stroke-[1] stroke-dasharray-[10,5]"
