@@ -6,6 +6,7 @@ import { useEventTables } from "@/hooks/useEventTables";
 import { db } from "@/lib/firebase";
 import { 
   doc, 
+  collection,
   setDoc, 
   deleteDoc, 
   updateDoc, 
@@ -13,17 +14,43 @@ import {
 } from "firebase/firestore";
 
 export default function QRScanner() {
-  const { guests, loading, assignGuest, unassignGuest } = useEventTables("event-123");
+  const [selectedEventId, setSelectedEventId] = useState("event-123");
+  const { guests, loading, assignGuest, unassignGuest, seedMockData } = useEventTables(selectedEventId);
   const [searchQuery, setSearchQuery] = useState("");
   const [scanResult, setScanResult] = useState<{ success: boolean; message: string } | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
+
+  // Events list from database
+  const [events, setEvents] = useState<{ id: string; title: string }[]>([]);
 
   // Seating Mode state
   const [openSeatingMode, setOpenSeatingMode] = useState<boolean | "hibrido">(false);
   const [totalTables, setTotalTables] = useState<number>(26);
   const [honorCapacity, setHonorCapacity] = useState<number>(6);
 
-  // Subscribe to settings from Firestore to sync totalTables, honorCapacity, and openSeatingMode
+  // 1. Load active events list from Firestore
+  useEffect(() => {
+    if (!db) return;
+    const unsubscribe = onSnapshot(collection(db, "events"), (snapshot) => {
+      const list: { id: string; title: string }[] = [];
+      snapshot.forEach((doc) => {
+        list.push({ id: doc.id, title: doc.data().title || doc.id });
+      });
+      // Deduplicate/add default demo if needed
+      if (!list.some(e => e.id === "event-123")) {
+        list.unshift({ id: "event-123", title: "Gran Gala SocialesVIP" });
+      }
+      setEvents(list);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // 2. Auto-seed guests when selected event changes
+  useEffect(() => {
+    seedMockData();
+  }, [selectedEventId]);
+
+  // 3. Subscribe to settings from Firestore to sync totalTables, honorCapacity, and openSeatingMode
   useEffect(() => {
     if (!db) return;
     const docRef = doc(db, "settings", "salon");
@@ -73,7 +100,7 @@ export default function QRScanner() {
           const isOccupied = guests.some((g) => g.tableId === tableNum && g.seatIndex === seatIdx);
           if (!isOccupied) {
             const guestId = `anon-${tableNum}-${seatIdx}-${Date.now()}-${count}`;
-            await setDoc(doc(db, "events", "event-123", "guests", guestId), {
+            await setDoc(doc(db, "events", selectedEventId, "guests", guestId), {
               name: `Mesa ${tableNum} Silla ${seatIdx + 1}`,
               tickets: 1,
               tableId: tableNum,
@@ -103,7 +130,7 @@ export default function QRScanner() {
       const target = occupied[occupied.length - 1];
       await unassignGuest(target.tableId as number, target.seatIndex as number);
       if (target.id.startsWith("anon-") || target.id.startsWith("guest-")) {
-        await deleteDoc(doc(db, "events", "event-123", "guests", target.id));
+        await deleteDoc(doc(db, "events", selectedEventId, "guests", target.id));
       }
       setScanResult({ success: true, message: "Salida registrada exitosamente." });
     } catch (err) {
@@ -126,13 +153,40 @@ export default function QRScanner() {
   );
 
   return (
-    <div className="p-4 space-y-6 w-full max-w-6xl mx-auto">
+    <div className="p-4 space-y-6 w-full max-w-5xl mx-auto">
+      {/* Event Selector Dropdown Card */}
+      <div className="glass p-5 rounded-2xl border border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div>
+          <span className="text-[10px] text-gold tracking-widest font-semibold uppercase block mb-1">
+            Recepción Activa
+          </span>
+          <h2 className="text-xl font-semibold text-white tracking-wide">Control de Acceso & Aforo</h2>
+          <p className="text-gray-400 text-xs font-light mt-1">
+            Gestiona la entrada de invitados generales y reservados por evento.
+          </p>
+        </div>
+        <div className="w-full md:w-72 shrink-0">
+          <label className="text-[10px] text-gray-500 font-bold uppercase block mb-1">
+            Seleccionar Evento Activo
+          </label>
+          <select
+            value={selectedEventId}
+            onChange={(e) => setSelectedEventId(e.target.value)}
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-medium"
+          >
+            {events.map((ev) => (
+              <option key={ev.id} value={ev.id}>{ev.title}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {/* Attendance summary stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="glass p-5 rounded-xl border border-white/5 flex flex-col justify-between">
           <div>
             <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1">
-              Ocupación Total Salón
+              {openSeatingMode === true ? "Ocupación Total Salón" : "Aforo Total Salón"}
             </span>
             <h3 className="text-2xl font-bold text-white font-mono">
               {checkedInCount} <span className="text-gray-500 text-sm">/ {capacityTotal}</span>

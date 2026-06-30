@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { MoveLeft, HelpCircle, Users } from "lucide-react";
 import { useEventTables } from "@/hooks/useEventTables";
 import { db } from "@/lib/firebase";
-import { doc, onSnapshot, setDoc, deleteDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, deleteDoc, collection } from "firebase/firestore";
 
 interface Guest {
   id: string;
@@ -24,15 +24,35 @@ interface TableMapProps {
 }
 
 export default function TableMap({ onBack }: TableMapProps) {
-  const { guests, loading, error, assignGuest, unassignGuest, seedMockData } = useEventTables("event-123");
+  const [selectedEventId, setSelectedEventId] = useState("event-123");
+  const { guests, loading, error, assignGuest, unassignGuest, seedMockData } = useEventTables(selectedEventId);
 
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
   const [draggedGuestId, setDraggedGuestId] = useState<string | null>(null);
 
-  // Auto-seed mock data on initial load
+  // Events list state
+  const [events, setEvents] = useState<{ id: string; title: string }[]>([]);
+
+  // Load events list from Firestore
+  useEffect(() => {
+    if (!db) return;
+    const unsubscribe = onSnapshot(collection(db, "events"), (snapshot) => {
+      const list: { id: string; title: string }[] = [];
+      snapshot.forEach((doc) => {
+        list.push({ id: doc.id, title: doc.data().title || doc.id });
+      });
+      if (!list.some(e => e.id === "event-123")) {
+        list.unshift({ id: "event-123", title: "Gran Gala SocialesVIP" });
+      }
+      setEvents(list);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Auto-seed mock data on selectedEventId change
   useEffect(() => {
     seedMockData();
-  }, []);
+  }, [selectedEventId]);
 
   // Compute unassigned list and assignments dictionary reactively from Firestore guests state
   const unassignedGuests = guests.filter((g) => g.tableId === null);
@@ -201,7 +221,7 @@ export default function TableMap({ onBack }: TableMapProps) {
         await unassignGuest(tableNumber, seatIndex);
         // If it is an anonymous/temporary guest doc created in open seating, delete it
         if (existingAssignment.guestId.startsWith("anon-") && db) {
-          await deleteDoc(doc(db, "events", "event-123", "guests", existingAssignment.guestId));
+          await deleteDoc(doc(db, "events", selectedEventId, "guests", existingAssignment.guestId));
         }
       } catch (err) {
         console.error("Failed to unassign seat in Firestore:", err);
@@ -209,7 +229,7 @@ export default function TableMap({ onBack }: TableMapProps) {
     } else if (openSeatingMode && db) {
       try {
         const guestId = `anon-${tableNumber}-${seatIndex}-${Date.now()}`;
-        await setDoc(doc(db, "events", "event-123", "guests", guestId), {
+        await setDoc(doc(db, "events", selectedEventId, "guests", guestId), {
           name: `Mesa ${tableNumber} Silla ${seatIndex + 1}`,
           tickets: 1,
           tableId: tableNumber,
@@ -227,7 +247,7 @@ export default function TableMap({ onBack }: TableMapProps) {
       <div className="w-full md:w-80 glass border-r border-gold/10 p-6 flex flex-col justify-between z-20 shrink-0 md:h-screen md:sticky md:top-0">
         <div>
           {/* Header */}
-          <div className="flex items-center gap-3 mb-8">
+          <div className="flex items-center gap-3 mb-6">
             <button
               onClick={onBack}
               className="p-2 rounded-lg bg-white/5 border border-white/10 hover:border-gold/30 hover:text-gold transition-all duration-300"
@@ -240,6 +260,22 @@ export default function TableMap({ onBack }: TableMapProps) {
               </span>
               <h2 className="text-lg font-medium text-white">Diseño de Mesas</h2>
             </div>
+          </div>
+
+          {/* Event Selector Dropdown */}
+          <div className="mb-6 bg-white/5 border border-white/10 rounded-xl p-3.5">
+            <label className="text-[9px] text-gray-500 font-bold uppercase block mb-1">
+              Evento Seleccionado
+            </label>
+            <select
+              value={selectedEventId}
+              onChange={(e) => setSelectedEventId(e.target.value)}
+              className="w-full bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-gold/30 font-medium"
+            >
+              {events.map((ev) => (
+                <option key={ev.id} value={ev.id}>{ev.title}</option>
+              ))}
+            </select>
           </div>
 
           {/* User Guide Card */}
