@@ -14,7 +14,8 @@ import {
   ShieldCheck,
   Building,
   Check,
-  X
+  X,
+  Pencil
 } from "lucide-react";
 
 interface StaffMember {
@@ -28,6 +29,7 @@ interface StaffMember {
 
 export default function SettingsManager() {
   const [activeSubTab, setActiveSubTab] = useState<"staff" | "salon" | "roles">("staff");
+  const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
   
   // Mock Staff Members Data with Categories/Tags
   const [staff, setStaff] = useState<StaffMember[]>([
@@ -333,13 +335,22 @@ export default function SettingsManager() {
                         </button>
                       </td>
                       <td className="py-4 px-4 text-right">
-                        <button
-                          onClick={() => handleDeleteStaff(member.id)}
-                          className="p-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg transition-all duration-300"
-                          title="Eliminar Personal"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => setEditingStaff(member)}
+                            className="p-1.5 bg-gold/10 hover:bg-gold/25 border border-gold/20 text-gold rounded-lg transition-all duration-300"
+                            title="Editar Perfil"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteStaff(member.id)}
+                            className="p-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg transition-all duration-300"
+                            title="Eliminar Personal"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -568,6 +579,112 @@ export default function SettingsManager() {
                 <span className="text-white font-mono font-semibold">5 px (Estricto)</span>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Staff Profile Modal */}
+      {editingStaff && (
+        <div className="fixed inset-0 bg-obsidian/85 flex items-center justify-center p-4 z-50 animate-fade-in backdrop-blur-sm">
+          <div className="glass-dark rounded-2xl border border-gold/20 max-w-md w-full p-6 space-y-4 animate-scale-up">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
+                Editar Perfil de Staff
+              </h3>
+              <button 
+                onClick={() => setEditingStaff(null)}
+                className="text-gray-500 hover:text-white text-xs"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                setStaff(staff.map(member => 
+                  member.id === editingStaff.id ? editingStaff : member
+                ));
+                setEditingStaff(null);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                  Nombre Completo
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editingStaff.name}
+                  onChange={(e) => setEditingStaff({ ...editingStaff, name: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                    Categoría (Tag)
+                  </label>
+                  <select
+                    value={editingStaff.category}
+                    onChange={(e) => setEditingStaff({ ...editingStaff, category: e.target.value as any })}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30"
+                  >
+                    <option value="Cocina">Cocina</option>
+                    <option value="Cabina">Cabina</option>
+                    <option value="Animación">Animación</option>
+                    <option value="Valet Parking">Valet Parking</option>
+                    <option value="Meseros">Meseros</option>
+                    <option value="Show">Show</option>
+                    <option value="Otro">Otro</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                    Puesto / Rol
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingStaff.role}
+                    onChange={(e) => setEditingStaff({ ...editingStaff, role: e.target.value })}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                  Correo Electrónico
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={editingStaff.email}
+                  onChange={(e) => setEditingStaff({ ...editingStaff, email: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingStaff(null)}
+                  className="w-1/2 py-2.5 rounded-lg border border-gray-700 text-gray-400 text-xs font-semibold uppercase hover:bg-white/5 transition-all duration-300"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="w-1/2 py-2.5 bg-gold hover:bg-gold-hover text-obsidian rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-300"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
