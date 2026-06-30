@@ -55,14 +55,14 @@ export default function TableMap({ onBack }: TableMapProps) {
 
   // Fixed Balcony tables configuration
   const balconyTables = [
-    { id: "balcony-1", cx: 300, cy: 120, tableNumber: 101, displayNum: 1 },
-    { id: "balcony-2", cx: 600, cy: 120, tableNumber: 102, displayNum: 2 },
-    { id: "balcony-3", cx: 900, cy: 120, tableNumber: 103, displayNum: 3 },
+    { id: "balcony-1", cx: 300, cy: 107, tableNumber: 101, displayNum: 1 },
+    { id: "balcony-2", cx: 600, cy: 107, tableNumber: 102, displayNum: 2 },
+    { id: "balcony-3", cx: 900, cy: 107, tableNumber: 103, displayNum: 3 },
   ];
 
   // Generate Table Coordinates dynamically based on state
   const tables: { id: number; cx: number; cy: number; tableNumber: number }[] = [];
-  const startY = 600;
+  const startY = 520;
   const endY = 2850;
 
   const numLeft = Math.ceil(totalTables / 2);
@@ -316,22 +316,22 @@ export default function TableMap({ onBack }: TableMapProps) {
               {/* Dotted border line marking the Balcony area */}
               <line
                 x1="50"
-                y1="240"
+                y1="214"
                 x2="1150"
-                y2="240"
+                y2="214"
                 className="stroke-gold/20 stroke-[2] stroke-dasharray-[6,6]"
               />
               <rect
                 x="500"
-                y="215"
+                y="214"
                 width="200"
-                height="50"
+                height="36"
                 rx="4"
                 className="fill-obsidian stroke-gold/20 stroke-[1]"
               />
               <text
                 x="600"
-                y="245"
+                y="236"
                 textAnchor="middle"
                 className="fill-gold font-semibold tracking-[0.3em] text-[10px] uppercase"
               >
@@ -524,14 +524,14 @@ export default function TableMap({ onBack }: TableMapProps) {
             <g>
               <rect
                 x="400"
-                y="600"
+                y="520"
                 width="400"
-                height="2250"
+                height="2330"
                 rx="6"
                 className="fill-zafiro/5 stroke-zafiro/25 stroke-[1] stroke-dasharray-[10,5]"
               />
               {/* Vertical Dance Floor text markers */}
-              {[1000, 1700, 2400].map((textY, idx) => (
+              {[900, 1600, 2300].map((textY, idx) => (
                 <text
                   key={idx}
                   x="600"
