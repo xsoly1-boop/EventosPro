@@ -482,20 +482,33 @@ export default function TableMap({ onBack }: TableMapProps) {
             {(() => {
               // Helper to build perimeter chairs positions for horizontal table (up to 12 per table)
               const getTablePerimeterChairs = (cx: number, cy: number, count: number) => {
-                const slots = [
-                  { dx: -60, dy: -65 },  // 1. Top mid-left
-                  { dx: 60, dy: -65 },   // 2. Top mid-right
-                  { dx: -60, dy: 65 },   // 3. Bottom mid-left
-                  { dx: 60, dy: 65 },    // 4. Bottom mid-right
-                  { dx: -165, dy: 0 },   // 5. Left
-                  { dx: 165, dy: 0 },    // 6. Right
-                  { dx: -120, dy: -65 }, // 7. Top far-left
-                  { dx: 120, dy: -65 },  // 8. Top far-right
-                  { dx: -120, dy: 65 },  // 9. Bottom far-left
-                  { dx: 120, dy: 65 },   // 10. Bottom far-right
-                  { dx: 0, dy: -65 },    // 11. Top center
-                  { dx: 0, dy: 65 },     // 12. Bottom center
-                ];
+                let slots = [];
+                if (count <= 6) {
+                  // NO bottom slots (dy: 65) used at all! Only top (dy: -65), left (dx: -165, dy: 0), right (dx: 165, dy: 0)
+                  slots = [
+                    { dx: -60, dy: -65 },   // 1. Top mid-left
+                    { dx: 60, dy: -65 },    // 2. Top mid-right
+                    { dx: -165, dy: 0 },    // 3. Left
+                    { dx: 165, dy: 0 },     // 4. Right
+                    { dx: -120, dy: -65 },  // 5. Top far-left
+                    { dx: 120, dy: -65 },   // 6. Top far-right
+                  ];
+                } else {
+                  slots = [
+                    { dx: -60, dy: -65 },  // 1. Top mid-left
+                    { dx: 60, dy: -65 },   // 2. Top mid-right
+                    { dx: -60, dy: 65 },   // 3. Bottom mid-left
+                    { dx: 60, dy: 65 },    // 4. Bottom mid-right
+                    { dx: -165, dy: 0 },   // 5. Left
+                    { dx: 165, dy: 0 },    // 6. Right
+                    { dx: -120, dy: -65 }, // 7. Top far-left
+                    { dx: 120, dy: -65 },  // 8. Top far-right
+                    { dx: -120, dy: 65 },  // 9. Bottom far-left
+                    { dx: 120, dy: 65 },   // 10. Bottom far-right
+                    { dx: 0, dy: -65 },    // 11. Top center
+                    { dx: 0, dy: 65 },     // 12. Bottom center
+                  ];
+                }
 
                 return slots.slice(0, count).map((slot, index) => ({
                   cx: cx + slot.dx,
