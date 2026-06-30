@@ -8,6 +8,7 @@ import QuotesManager from "@/components/modules/quotes/QuotesManager";
 import FinanceDashboard from "@/components/modules/finance/FinanceDashboard";
 import LogisticsTimeline from "@/components/modules/timeline/LogisticsTimeline";
 import QRScanner from "@/components/modules/scanner/QRScanner";
+import SettingsManager from "@/components/modules/settings/SettingsManager";
 
 import { 
   LayoutDashboard, 
@@ -16,13 +17,14 @@ import {
   WalletCards, 
   Clock, 
   QrCode, 
+  Sliders,
   LogOut, 
   User, 
   Sparkles,
   ChevronRight
 } from "lucide-react";
 
-type TabType = "overview" | "tables" | "quotes" | "finance" | "timeline" | "scanner";
+type TabType = "overview" | "tables" | "quotes" | "finance" | "timeline" | "scanner" | "settings";
 
 export default function Home() {
   const { user, loading, logout } = useAuth();
@@ -51,6 +53,7 @@ export default function Home() {
     { id: "finance", label: "Finanzas", icon: WalletCards, roles: ["admin", "client"] },
     { id: "timeline", label: "Cronograma", icon: Clock, roles: ["admin", "client"] },
     { id: "scanner", label: "Escáner & Aforo", icon: QrCode, roles: ["admin", "staff"] },
+    { id: "settings", label: "Personal & Config.", icon: Sliders, roles: ["admin"] },
   ];
 
   const allowedTabs = navigationItems.filter(item => item.roles.includes(user.role || ""));
@@ -71,6 +74,8 @@ export default function Home() {
         return <LogisticsTimeline />;
       case "scanner":
         return <QRScanner />;
+      case "settings":
+        return <SettingsManager />;
       default:
         return <OverviewTab user={user} setActiveTab={setActiveTab} allowedTabs={allowedTabs} />;
     }
@@ -195,6 +200,7 @@ function OverviewTab({ user, setActiveTab, allowedTabs }: OverviewProps) {
                     {tab.id === "finance" && "Registra abonos y evalúa rentabilidad neta del salón."}
                     {tab.id === "timeline" && "Logística del día minuto a minuto para coordinación."}
                     {tab.id === "scanner" && "Escanea códigos QR de aforo en la entrada principal."}
+                    {tab.id === "settings" && "Gestiona al personal y los límites físicos del salón."}
                   </p>
                 </div>
               </div>
