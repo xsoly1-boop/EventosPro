@@ -45,10 +45,10 @@ export default function TableMap({ onBack }: TableMapProps) {
     }
   });
 
-  // Layout Parameters: Aspect Ratio 9:50
-  // SVG Canvas dimensions: Width 900, Height 5000
+  // Layout Parameters: Aspect Ratio 9:30
+  // SVG Canvas dimensions: Width 900, Height 3000
   const canvasWidth = 900;
-  const canvasHeight = 5000;
+  const canvasHeight = 3000;
 
   // Dynamic tables state
   const [totalTables, setTotalTables] = useState<number>(26);
@@ -62,8 +62,8 @@ export default function TableMap({ onBack }: TableMapProps) {
 
   // Generate Table Coordinates dynamically based on state
   const tables: { id: number; cx: number; cy: number; tableNumber: number }[] = [];
-  const startY = 900;
-  const endY = 4700;
+  const startY = 720;
+  const endY = 2850;
 
   const numLeft = Math.ceil(totalTables / 2);
   const numRight = Math.floor(totalTables / 2);
@@ -265,12 +265,12 @@ export default function TableMap({ onBack }: TableMapProps) {
         </div>
 
         {/* Scrollable layout box */}
-        <div className="relative glass-dark border border-white/5 rounded-2xl w-full max-w-[450px] aspect-[9/50] overflow-y-auto shadow-2xl bg-black">
+        <div className="relative glass-dark border border-white/5 rounded-2xl w-full max-w-[450px] aspect-[9/30] overflow-y-auto shadow-2xl bg-black">
           {/* SVG Plan Render */}
           <svg
             viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
             className="w-full h-auto pointer-events-auto"
-            style={{ minHeight: "2500px" }}
+            style={{ minHeight: "1500px" }}
           >
             {/* Ambient Background Grid lines */}
             <defs>
@@ -405,15 +405,15 @@ export default function TableMap({ onBack }: TableMapProps) {
             <g>
               <rect
                 x="250"
-                y="460"
+                y="440"
                 width="400"
-                height="90"
+                height="80"
                 rx="8"
                 className="fill-dark-gray stroke-gold stroke-[2] shadow-xl"
               />
               <text
                 x="450"
-                y="510"
+                y="485"
                 textAnchor="middle"
                 className="fill-gold font-light tracking-[0.2em] text-sm uppercase"
               >
@@ -425,14 +425,14 @@ export default function TableMap({ onBack }: TableMapProps) {
             <g>
               <rect
                 x="380"
-                y="900"
+                y="720"
                 width="140"
-                height="3800"
+                height="2150"
                 rx="6"
                 className="fill-zafiro/5 stroke-zafiro/25 stroke-[1] stroke-dasharray-[10,5]"
               />
               {/* Vertical Dance Floor text markers */}
-              {[1500, 2500, 3550, 4300].map((textY, idx) => (
+              {[1100, 1700, 2400].map((textY, idx) => (
                 <text
                   key={idx}
                   x="450"
