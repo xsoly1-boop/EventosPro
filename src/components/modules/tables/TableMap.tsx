@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { MoveLeft, HelpCircle, Users } from "lucide-react";
 import { useEventTables } from "@/hooks/useEventTables";
 import { db } from "@/lib/firebase";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, deleteDoc } from "firebase/firestore";
 
 interface Guest {
   id: string;
@@ -55,6 +55,7 @@ export default function TableMap({ onBack }: TableMapProps) {
   // Dynamic tables state
   const [totalTables, setTotalTables] = useState<number>(26);
   const [honorCapacity, setHonorCapacity] = useState<number>(6);
+  const [openSeatingMode, setOpenSeatingMode] = useState(false);
 
   // Subscribe to settings from Firestore to sync totalTables and honorCapacity in real-time
   useEffect(() => {
@@ -65,6 +66,7 @@ export default function TableMap({ onBack }: TableMapProps) {
         const data = docSnap.data();
         if (data.totalTables !== undefined) setTotalTables(data.totalTables);
         if (data.honorCapacity !== undefined) setHonorCapacity(data.honorCapacity);
+        if (data.openSeatingMode !== undefined) setOpenSeatingMode(data.openSeatingMode);
       }
     });
     return () => unsubscribe();
@@ -189,7 +191,7 @@ export default function TableMap({ onBack }: TableMapProps) {
     }
   };
 
-  // Handle click to unassign from seat
+  // Handle click to unassign from seat or assign new anonymous seat in openSeatingMode
   const handleSeatClick = async (tableNumber: number, seatIndex: number) => {
     const seatKey = `${tableNumber}-${seatIndex}`;
     const existingAssignment = assignments[seatKey];
@@ -197,8 +199,24 @@ export default function TableMap({ onBack }: TableMapProps) {
     if (existingAssignment) {
       try {
         await unassignGuest(tableNumber, seatIndex);
+        // If it is an anonymous/temporary guest doc created in open seating, delete it
+        if (existingAssignment.guestId.startsWith("anon-") && db) {
+          await deleteDoc(doc(db, "events", "event-123", "guests", existingAssignment.guestId));
+        }
       } catch (err) {
         console.error("Failed to unassign seat in Firestore:", err);
+      }
+    } else if (openSeatingMode && db) {
+      try {
+        const guestId = `anon-${tableNumber}-${seatIndex}-${Date.now()}`;
+        await setDoc(doc(db, "events", "event-123", "guests", guestId), {
+          name: `Mesa ${tableNumber} Silla ${seatIndex + 1}`,
+          tickets: 1,
+          tableId: tableNumber,
+          seatIndex: seatIndex
+        });
+      } catch (err) {
+        console.error("Failed to assign seat in Firestore:", err);
       }
     }
   };
@@ -284,51 +302,129 @@ export default function TableMap({ onBack }: TableMapProps) {
             </div>
           </div>
 
-          {/* Draggable Guests List */}
+          {/* Draggable Guests List or Aforo Libre Control Panel */}
           <div>
-            <div className="flex items-center gap-2 mb-4 text-xs font-semibold uppercase tracking-wider text-gray-400">
-              <Users className="h-4 w-4 text-gold" />
-              <span>Invitados por Asignar ({unassignedGuests.length})</span>
-            </div>
-
-            <div className="space-y-2.5 max-h-[40vh] md:max-h-[50vh] overflow-y-auto pr-1">
-              {loading ? (
-                <div className="text-center py-10 text-xs text-gray-500 font-light flex flex-col items-center justify-center gap-3">
-                  <div className="w-5 h-5 border-2 border-gold border-t-transparent rounded-full animate-spin" />
-                  <span>Sincronizando Firestore...</span>
+            {openSeatingMode ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gold">
+                  <Users className="h-4 w-4" />
+                  <span>Aforo Libre Activo</span>
                 </div>
-              ) : (
-                <>
-                  {unassignedGuests.map((guest) => {
-                    const isSelected = selectedGuestId === guest.id;
-                    return (
-                      <div
-                        key={guest.id}
-                        draggable
-                        onDragStart={() => handleDragStart(guest.id)}
-                        onClick={() => setSelectedGuestId(isSelected ? null : guest.id)}
-                        className={`p-3 rounded-lg border text-xs font-light transition-all duration-300 cursor-pointer select-none flex justify-between items-center ${
-                          isSelected
-                            ? "bg-gold/20 border-gold text-white shadow-[0_0_10px_rgba(212,175,55,0.1)]"
-                            : "bg-white/5 border-white/5 text-gray-300 hover:border-gold/30 hover:bg-white/10"
-                        }`}
-                      >
-                        <span>{guest.name}</span>
-                        <span className="text-[9px] bg-white/10 px-2 py-0.5 rounded text-gold border border-gold/20">
-                          {guest.tickets} Pases
-                        </span>
-                      </div>
-                    );
-                  })}
+                
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-400">Total Capacidad:</span>
+                    <span className="text-white font-mono font-semibold">{(totalTables * 10) + honorCapacity} Asientos</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-400">Lugares Ocupados:</span>
+                    <span className="text-emerald-400 font-mono font-bold">
+                      {guests.filter(g => g.tableId !== null && g.seatIndex !== null).length} Asientos
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs border-t border-white/5 pt-2">
+                    <span className="text-gray-400">Disponibilidad:</span>
+                    <span className="text-gold font-mono font-semibold">
+                      {((totalTables * 10) + honorCapacity) - guests.filter(g => g.tableId !== null && g.seatIndex !== null).length} Libres
+                    </span>
+                  </div>
+                </div>
 
-                  {unassignedGuests.length === 0 && (
-                    <div className="text-center py-8 text-xs text-gray-500 font-light">
-                      Todos los invitados han sido asignados al plano.
+                <div className="space-y-2">
+                  <button
+                    onClick={async () => {
+                      if (!db) return;
+                      // Find first free seat and assign an anonymous guest
+                      let assigned = false;
+                      for (let tableNum = 1; tableNum <= totalTables; tableNum++) {
+                        for (let seatIdx = 0; seatIdx < 10; seatIdx++) {
+                          const isOccupied = guests.some((g) => g.tableId === tableNum && g.seatIndex === seatIdx);
+                          if (!isOccupied) {
+                            const guestId = `anon-${tableNum}-${seatIdx}-${Date.now()}`;
+                            await setDoc(doc(db, "events", "event-123", "guests", guestId), {
+                              name: `Mesa ${tableNum} Silla ${seatIdx + 1}`,
+                              tickets: 1,
+                              tableId: tableNum,
+                              seatIndex: seatIdx
+                            });
+                            assigned = true;
+                            break;
+                          }
+                        }
+                        if (assigned) break;
+                      }
+                    }}
+                    className="w-full py-2.5 bg-gold hover:bg-gold-hover text-obsidian rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-300 active:scale-95 text-center block"
+                  >
+                    + Entrada Express
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      if (!db) return;
+                      if (window.confirm("¿Seguro que deseas vaciar todos los asientos ocupados del salón?")) {
+                        const occupied = guests.filter(g => g.tableId !== null && g.seatIndex !== null);
+                        for (const g of occupied) {
+                          await unassignGuest(g.tableId as number, g.seatIndex as number);
+                          if (g.id.startsWith("anon-") || g.id.startsWith("guest-")) {
+                            await deleteDoc(doc(db, "events", "event-123", "guests", g.id));
+                          }
+                        }
+                      }
+                    }}
+                    className="w-full py-2 rounded-lg bg-red-950/20 border border-red-500/20 text-red-400 hover:bg-red-950/40 text-xs font-light transition-all duration-300 active:scale-95 text-center block"
+                  >
+                    Vaciar Salón
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-4 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  <Users className="h-4 w-4 text-gold" />
+                  <span>Invitados por Asignar ({unassignedGuests.length})</span>
+                </div>
+
+                <div className="space-y-2.5 max-h-[40vh] md:max-h-[50vh] overflow-y-auto pr-1">
+                  {loading ? (
+                    <div className="text-center py-10 text-xs text-gray-500 font-light flex flex-col items-center justify-center gap-3">
+                      <div className="w-5 h-5 border-2 border-gold border-t-transparent rounded-full animate-spin" />
+                      <span>Sincronizando Firestore...</span>
                     </div>
+                  ) : (
+                    <>
+                      {unassignedGuests.map((guest) => {
+                        const isSelected = selectedGuestId === guest.id;
+                        return (
+                          <div
+                            key={guest.id}
+                            draggable
+                            onDragStart={() => handleDragStart(guest.id)}
+                            onClick={() => setSelectedGuestId(isSelected ? null : guest.id)}
+                            className={`p-3 rounded-lg border text-xs font-light transition-all duration-300 cursor-pointer select-none flex justify-between items-center ${
+                              isSelected
+                                ? "bg-gold/20 border-gold text-white shadow-[0_0_10px_rgba(212,175,55,0.1)]"
+                                : "bg-white/5 border-white/5 text-gray-300 hover:border-gold/30 hover:bg-white/10"
+                            }`}
+                          >
+                            <span>{guest.name}</span>
+                            <span className="text-[9px] bg-white/10 px-2 py-0.5 rounded text-gold border border-gold/20">
+                              {guest.tickets} Pases
+                            </span>
+                          </div>
+                        );
+                      })}
+
+                      {unassignedGuests.length === 0 && (
+                        <div className="text-center py-8 text-xs text-gray-500 font-light">
+                          Todos los invitados han sido asignados al plano.
+                        </div>
+                      )}
+                    </>
                   )}
-                </>
-              )}
-            </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

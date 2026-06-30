@@ -59,6 +59,7 @@ export default function SettingsManager() {
   const [salonAddress, setSalonAddress] = useState("Av. Las Lomas #450, Ciudad VIP");
   const [baseRent, setBaseRent] = useState("5000");
   const [securityDeposit, setSecurityDeposit] = useState("1500");
+  const [openSeatingMode, setOpenSeatingMode] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
   // Time Offsets values and units states
@@ -201,6 +202,7 @@ export default function SettingsManager() {
         setDanceFloorWidth(data.danceFloorWidth ?? 4.0);
         setBalconyTablesCount(data.balconyTablesCount ?? 3);
         setBalconyMarginPx(data.balconyMarginPx ?? 5);
+        setOpenSeatingMode(data.openSeatingMode || false);
       }
     });
 
@@ -259,6 +261,7 @@ export default function SettingsManager() {
       salonAddress,
       baseRent,
       securityDeposit,
+      openSeatingMode,
       offsetValCocina,
       offsetUnitCocina,
       offsetValMeseros,
@@ -668,6 +671,20 @@ export default function SettingsManager() {
                     onChange={(e) => setSalonName(e.target.value)}
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-light"
                   />
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                    Modo Distribución de Asientos
+                  </label>
+                  <select
+                    value={openSeatingMode ? "libre" : "fijo"}
+                    onChange={(e) => setOpenSeatingMode(e.target.value === "libre")}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30"
+                  >
+                    <option value="fijo">Asignación Fija (Listado & Croquis)</option>
+                    <option value="libre">Aforo Libre (Orden de Llegada)</option>
+                  </select>
                 </div>
 
                 <div>
