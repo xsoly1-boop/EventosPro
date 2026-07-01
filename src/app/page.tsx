@@ -171,7 +171,20 @@ export default function Home() {
 
   // If activeTab is "tables", it handles its own layout, so we render it directly
   if (activeTab === "tables") {
-    return <TableMap onBack={() => setActiveTab("overview")} />;
+    return (
+      <div className={`min-h-screen bg-obsidian text-foreground overflow-hidden theme-${loginTheme} relative`}>
+        {/* Background Image for Theme 1 */}
+        {loginTheme === "1" && (
+          <>
+            <div className="absolute inset-0 bg-cover bg-center opacity-40 z-0" style={{ backgroundImage: "url('/login-bg.jpg')" }} />
+            <div className="absolute inset-0 bg-black/50 z-0" />
+          </>
+        )}
+        <div className="relative z-10 w-full h-full">
+          <TableMap onBack={() => setActiveTab("overview")} />
+        </div>
+      </div>
+    );
   }
 
   return (
