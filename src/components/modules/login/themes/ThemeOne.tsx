@@ -14,8 +14,37 @@ export default function ThemeOne({ activeForm, setActiveForm, authRole, hostCode
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-10 relative overflow-hidden"
       style={{ background: "radial-gradient(ellipse at 50% 0%, #1a1408 0%, #050505 60%)" }}>
       {/* Background base */}
-      <div className="absolute inset-0 bg-cover bg-center opacity-35" style={{ backgroundImage: "url('/login-bg.jpg')" }} />
-      <div className="absolute inset-0 bg-black/70" />
+      <div className="absolute inset-0 bg-cover bg-center opacity-85" style={{ backgroundImage: "url('/login-bg.jpg')" }} />
+      <div className="absolute inset-0 bg-black/20" />
+
+      {/* Custom Styles for loading borders */}
+      <style>{`
+        @keyframes borderShimmer {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        .theme-card-border {
+          background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(212,175,55,0.3), rgba(255,255,255,0.06));
+          background-size: 200% 200%;
+          animation: borderShimmer 3s linear infinite;
+        }
+        .theme-card-border:hover {
+          background: linear-gradient(90deg, rgba(212,175,55,0.3), rgba(251,191,36,0.9), rgba(212,175,55,0.3));
+          background-size: 200% 200%;
+          animation: borderShimmer 1.8s linear infinite;
+        }
+        .theme-card-border-featured {
+          background: linear-gradient(90deg, rgba(212,175,55,0.3), rgba(251,191,36,0.8), rgba(212,175,55,0.3));
+          background-size: 200% 200%;
+          animation: borderShimmer 2.2s linear infinite;
+        }
+        .theme-card-border-featured:hover {
+          background: linear-gradient(90deg, rgba(251,191,36,0.6), rgba(255,255,255,1), rgba(251,191,36,0.6));
+          background-size: 200% 200%;
+          animation: borderShimmer 1.2s linear infinite;
+        }
+      `}</style>
 
       {/* Header */}
       <div className="relative z-10 text-center mb-10"
@@ -45,39 +74,41 @@ export default function ThemeOne({ activeForm, setActiveForm, authRole, hostCode
           const Icon = ICONS[row.id as keyof typeof ICONS];
           return (
             <button key={row.id} onClick={() => handleRowAction(row.action)}
-              className="group relative rounded-2xl overflow-hidden text-left cursor-pointer h-[360px] flex flex-col justify-end"
+              className="group relative rounded-2xl overflow-hidden text-left cursor-pointer h-[360px] flex flex-col justify-end p-[2.5px] transition-all duration-300 hover:scale-[1.01] active:scale-[0.99]"
               style={{
                 opacity: mounted ? 1 : 0,
                 transform: mounted ? "translateY(0)" : "translateY(30px)",
-                transition: `opacity 0.6s ease ${0.1 + i * 0.15}s, transform 0.6s ease ${0.1 + i * 0.15}s`,
+                transition: `opacity 0.6s ease ${0.1 + i * 0.15}s, transform 0.6s ease ${0.1 + i * 0.15}s, scale 0.2s ease`,
               }}>
-              {/* Full-bleed background image */}
-              <div className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-                style={{ backgroundImage: `url('${row.bg}')` }} />
-              {/* Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/20 group-hover:from-black/95 transition-all duration-500" />
-              {/* Gold border on hover */}
-              <div className="absolute inset-0 rounded-2xl border border-white/10 group-hover:border-gold/50 transition-colors duration-500" />
-              {/* Featured ring */}
-              {row.featured && <div className="absolute inset-0 rounded-2xl ring-2 ring-gold/30 group-hover:ring-gold/60 transition-all duration-500" />}
+              {/* Animated Loading/Shimmer Border Container */}
+              <div className={`absolute inset-0 rounded-2xl transition-all duration-500 ${row.featured ? 'theme-card-border-featured' : 'theme-card-border'}`} />
 
-              {/* Content panel */}
-              <div className="relative z-10 p-6 space-y-3 backdrop-blur-[2px]">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-400 ${row.featured ? "bg-gold/20 border-gold/40 shadow-[0_0_15px_rgba(212,175,55,0.3)]" : "bg-white/10 border-white/20 group-hover:bg-gold/15 group-hover:border-gold/30"}`}>
-                  <Icon className={`h-4 w-4 ${row.featured ? "text-gold" : "text-white group-hover:text-gold"} transition-colors duration-300`} />
-                </div>
-                <div>
-                  <span className="text-[9px] text-gold/60 font-semibold tracking-[0.2em] uppercase block mb-0.5">{row.eyebrow}</span>
-                  <h3 className="text-lg font-semibold text-white group-hover:text-gold transition-colors duration-300">{row.title}</h3>
-                  <p className="text-gray-400 text-xs font-light mt-1 leading-relaxed">{row.desc}</p>
-                </div>
-                <div className={`flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-300 ${
-                  row.featured
-                    ? "bg-gold text-obsidian shadow-[0_2px_15px_rgba(212,175,55,0.4)] group-hover:shadow-[0_4px_25px_rgba(212,175,55,0.6)]"
-                    : "border border-white/20 text-white group-hover:border-gold/50 group-hover:bg-gold/10 group-hover:text-gold"
-                }`}>
-                  <span>{row.buttonLabel}</span>
-                  <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform duration-200" />
+              {/* Inner Card Content Shield */}
+              <div className="relative w-full h-full rounded-[14px] overflow-hidden flex flex-col justify-end">
+                {/* Full-bleed background image */}
+                <div className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
+                  style={{ backgroundImage: `url('${row.bg}')` }} />
+                {/* Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/20 group-hover:from-black/95 transition-all duration-500" />
+
+                {/* Content panel */}
+                <div className="relative z-10 p-6 space-y-3 backdrop-blur-[2px]">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-400 ${row.featured ? "bg-gold/20 border-gold/40 shadow-[0_0_15px_rgba(212,175,55,0.3)]" : "bg-white/10 border-white/20 group-hover:bg-gold/15 group-hover:border-gold/30"}`}>
+                    <Icon className={`h-4 w-4 ${row.featured ? "text-gold" : "text-white group-hover:text-gold"} transition-colors duration-300`} />
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-gold/60 font-semibold tracking-[0.2em] uppercase block mb-0.5">{row.eyebrow}</span>
+                    <h3 className="text-lg font-semibold text-white group-hover:text-gold transition-colors duration-300">{row.title}</h3>
+                    <p className="text-gray-400 text-xs font-light mt-1 leading-relaxed">{row.desc}</p>
+                  </div>
+                  <div className={`flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-300 ${
+                    row.featured
+                      ? "bg-gold text-obsidian shadow-[0_2px_15px_rgba(212,175,55,0.4)] group-hover:shadow-[0_4px_25px_rgba(212,175,55,0.6)]"
+                      : "border border-white/20 text-white group-hover:border-gold/50 group-hover:bg-gold/10 group-hover:text-gold"
+                  }`}>
+                    <span>{row.buttonLabel}</span>
+                    <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform duration-200" />
+                  </div>
                 </div>
               </div>
             </button>
@@ -94,8 +125,8 @@ export default function ThemeOne({ activeForm, setActiveForm, authRole, hostCode
   if (activeForm === "host-code") return (
     <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden"
       style={{ background: "radial-gradient(ellipse at 50% 0%, #1a1408 0%, #050505 70%)" }}>
-      <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{ backgroundImage: "url('/login-bg.jpg')" }} />
-      <div className="absolute inset-0 bg-black/75" />
+      <div className="absolute inset-0 bg-cover bg-center opacity-85" style={{ backgroundImage: "url('/login-bg.jpg')" }} />
+      <div className="absolute inset-0 bg-black/20" />
       <div className="relative z-10 w-full max-w-md">
         <button onClick={() => setActiveForm("menu")} className="flex items-center gap-1.5 text-[10px] text-gray-500 hover:text-gold uppercase tracking-widest font-semibold mb-8 transition-colors">
           <ChevronRight className="h-3 w-3 rotate-180" /> Volver
@@ -126,8 +157,8 @@ export default function ThemeOne({ activeForm, setActiveForm, authRole, hostCode
   return (
     <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden"
       style={{ background: "radial-gradient(ellipse at 50% 0%, #1a1408 0%, #050505 70%)" }}>
-      <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{ backgroundImage: "url('/login-bg.jpg')" }} />
-      <div className="absolute inset-0 bg-black/75" />
+      <div className="absolute inset-0 bg-cover bg-center opacity-85" style={{ backgroundImage: "url('/login-bg.jpg')" }} />
+      <div className="absolute inset-0 bg-black/20" />
       <div className="relative z-10 w-full max-w-md">
         <button onClick={() => setActiveForm("menu")} className="flex items-center gap-1.5 text-[10px] text-gray-500 hover:text-gold uppercase tracking-widest font-semibold mb-8 transition-colors">
           <ChevronRight className="h-3 w-3 rotate-180" /> Volver
