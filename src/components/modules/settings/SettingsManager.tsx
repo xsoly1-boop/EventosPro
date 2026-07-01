@@ -565,7 +565,18 @@ export default function SettingsManager() {
   };
 
   const handleSaveRoles = async () => {
-    await setDoc(doc(db, "settings", "roles"), { permissions: rolePermissions }, { merge: true });
+    const allowedKeys = ["dashboard", "mesas", "calendario", "cotizaciones", "finanzas", "cronograma", "escáner", "eventos"];
+    const sanitized = rolePermissions.map(role => {
+      const sanitizedModules: Record<string, boolean> = {};
+      allowedKeys.forEach(k => {
+        sanitizedModules[k] = !!(role.modules as any)[k];
+      });
+      return {
+        ...role,
+        modules: sanitizedModules
+      };
+    });
+    await setDoc(doc(db, "settings", "roles"), { permissions: sanitized }, { merge: true });
     setIsRolesSaved(true);
     setTimeout(() => setIsRolesSaved(false), 3000);
   };
@@ -887,8 +898,8 @@ export default function SettingsManager() {
                         </p>
                       </td>
                       
-                      {Object.keys(roleObj.modules).map((moduleKey) => {
-                        const isChecked = mods[moduleKey];
+                      {["dashboard", "mesas", "calendario", "cotizaciones", "finanzas", "cronograma", "escáner", "eventos"].map((moduleKey) => {
+                        const isChecked = !!mods[moduleKey];
                         const isDisabled = roleObj.role === "admin";
 
                         return (
