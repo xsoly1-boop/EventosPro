@@ -24,6 +24,7 @@ export default function LoginPortal() {
   const [error, setError] = useState("");
   const [mounted, setMounted] = useState(false);
   const [loginTheme, setLoginTheme] = useState<LoginTheme>("1");
+  const [logoUrl, setLogoUrl] = useState<string>("");
 
   useEffect(() => {
     setMounted(true);
@@ -46,8 +47,10 @@ export default function LoginPortal() {
     // Subscribe to branding settings for real-time theme switching
     const unsub = onSnapshot(doc(db, "settings", "branding"), (snap) => {
       if (snap.exists()) {
-        const theme = snap.data()?.loginTheme as LoginTheme;
+        const data = snap.data();
+        const theme = data?.loginTheme as LoginTheme;
         if (theme && ["1","2","3"].includes(theme)) setLoginTheme(theme);
+        if (data?.logoUrl !== undefined) setLogoUrl(data.logoUrl);
       }
     });
     return () => unsub();
@@ -97,6 +100,7 @@ export default function LoginPortal() {
     loading, error, setError, mounted,
     handleHostSubmit, handleAuthSubmit,
     handleRowAction, loginDemo,
+    logoUrl,
   };
 
   if (loginTheme === "1") return <ThemeOne {...themeProps} />;

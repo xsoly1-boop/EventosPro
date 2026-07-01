@@ -45,9 +45,7 @@ interface StaffMember {
 
 export default function SettingsManager() {
   const { user } = useAuth();
-  const [activeSubTab, setActiveSubTab] = useState<"staff" | "salon" | "roles" | "catalog" | "scanner" | "apariencia">("staff");
-  const [loginTheme, setLoginTheme] = useState<"1" | "2" | "3">("1");
-  const [themeSaved, setThemeSaved] = useState(false);
+  const [activeSubTab, setActiveSubTab] = useState<"staff" | "salon" | "roles" | "catalog" | "scanner">("staff");
 
   // Scanner Codes State
   const [scannerCodes, setScannerCodes] = useState<{ id: string; code: string; label: string; createdBy: string; createdAt: string }[]>([]);
@@ -294,22 +292,10 @@ export default function SettingsManager() {
       }
     });
 
-    // 4. Subscribe to Branding/Theme settings
-    const brandingDocRef = doc(db, "settings", "branding");
-    const unsubscribeBranding = onSnapshot(brandingDocRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.loginTheme && ["1", "2", "3"].includes(data.loginTheme)) {
-          setLoginTheme(data.loginTheme);
-        }
-      }
-    });
-
     return () => {
       unsubscribeStaff();
       unsubscribeSalon();
       unsubscribeRoles();
-      unsubscribeBranding();
     };
   }, [db]);
 
@@ -556,13 +542,7 @@ export default function SettingsManager() {
     setTimeout(() => setIsSaved(false), 3000);
   };
 
-  const handleSaveTheme = async (theme: "1" | "2" | "3") => {
-    if (!db) return;
-    setLoginTheme(theme);
-    await setDoc(doc(db, "settings", "branding"), { loginTheme: theme }, { merge: true });
-    setThemeSaved(true);
-    setTimeout(() => setThemeSaved(false), 2500);
-  };
+
 
   const handleTogglePermission = (roleIdx: number, moduleKey: string) => {
     const updated = [...rolePermissions];
@@ -661,17 +641,7 @@ export default function SettingsManager() {
             <QrCode className="h-3.5 w-3.5" />
             Códigos de Escáner
           </button>
-          <button
-            onClick={() => setActiveSubTab("apariencia")}
-            className={`py-1.5 px-4 rounded-md text-xs tracking-wide transition-all duration-300 flex items-center gap-2 ${
-              activeSubTab === "apariencia"
-                ? "bg-gold text-obsidian font-semibold"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            Apariencia
-          </button>
+
         </div>
       </div>
 
@@ -1808,95 +1778,7 @@ export default function SettingsManager() {
         </div>
       )}
 
-      {/* Apariencia Sub Tab */}
-      {activeSubTab === "apariencia" && (
-        <div className="space-y-6">
-          <div className="glass-dark rounded-2xl p-6 border border-white/5 space-y-5">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-[10px] text-gold tracking-widest font-semibold uppercase block mb-1">
-                  Personalización Visual
-                </span>
-                <h3 className="text-sm font-semibold text-white">Diseño del Portal de Acceso</h3>
-                <p className="text-xs text-gray-400 font-light mt-1 max-w-xl">
-                  Selecciona uno de los tres temas de diseño exclusivos para la pantalla principal de login de tu plataforma. El cambio se aplica en tiempo real para todos los usuarios.
-                </p>
-              </div>
-              {themeSaved && (
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-gold/10 border border-gold/30 text-gold rounded-full text-[10px] font-semibold animate-fade-in">
-                  <Check className="h-3.5 w-3.5" />
-                  Tema Guardado
-                </div>
-              )}
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[
-                {
-                  id: "1",
-                  title: "Tema 1: Tall Cards",
-                  desc: "Tarjetas verticales de pantalla completa con imágenes temáticas y pie frosted esmerilado.",
-                  preview: "/theme-preview-1.jpg"
-                },
-                {
-                  id: "2",
-                  title: "Tema 2: Split Hero",
-                  desc: "División cinematográfica a dos paneles: hero izquierdo con salón de gala y filas horizontales a la derecha.",
-                  preview: "/theme-preview-2.jpg"
-                },
-                {
-                  id: "3",
-                  title: "Tema 3: Neon Glow",
-                  desc: "Misticismo y lujo minimalista con fondo estelar oscuro y halos dorados pulsando alrededor de iconos centrales.",
-                  preview: "/theme-preview-3.jpg"
-                }
-              ].map((theme) => (
-                <div
-                  key={theme.id}
-                  onClick={() => handleSaveTheme(theme.id as "1" | "2" | "3")}
-                  className={`group rounded-2xl overflow-hidden border cursor-pointer transition-all duration-300 ${
-                    loginTheme === theme.id
-                      ? "border-gold bg-gold/[0.03] shadow-[0_0_20px_rgba(212,175,55,0.15)]"
-                      : "border-white/5 bg-white/[0.01] hover:border-white/20 hover:bg-white/[0.03]"
-                  }`}
-                >
-                  {/* Preview Thumbnail */}
-                  <div className="relative aspect-video overflow-hidden border-b border-white/5">
-                    <div
-                      className="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                      style={{ backgroundImage: `url('${theme.preview}')` }}
-                    />
-                    {loginTheme === theme.id && (
-                      <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
-                        <div className="w-9 h-9 rounded-full bg-gold text-obsidian flex items-center justify-center shadow-lg">
-                          <Check className="h-5 w-5" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Body Info */}
-                  <div className="p-4 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <h4 className={`text-xs font-semibold ${loginTheme === theme.id ? "text-gold" : "text-white"}`}>
-                        {theme.title}
-                      </h4>
-                      {loginTheme === theme.id && (
-                        <span className="text-[8px] bg-gold/10 border border-gold/30 text-gold px-1.5 py-0.5 rounded-full uppercase font-bold tracking-wider">
-                          Activo
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-gray-400 font-light leading-relaxed">
-                      {theme.desc}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -19,6 +19,7 @@ export interface ThemeProps {
   handleAuthSubmit: (e: React.FormEvent) => void;
   handleRowAction: (action: "admin" | "host-code" | "scanner") => void;
   loginDemo: (role: UserRole) => void;
+  logoUrl?: string;
 }
 
 export const ACCESS_ROWS = [

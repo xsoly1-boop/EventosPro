@@ -7,7 +7,7 @@ import { ThemeProps, ACCESS_ROWS } from "./types";
 
 const ICONS = { admin: Shield, client: User, staff: QrCode };
 
-export default function ThemeOne({ activeForm, setActiveForm, authRole, hostCode, setHostCode, email, setEmail, password, setPassword, loading, error, setError, mounted, handleHostSubmit, handleAuthSubmit, handleRowAction, loginDemo }: ThemeProps) {
+export default function ThemeOne({ activeForm, setActiveForm, authRole, hostCode, setHostCode, email, setEmail, password, setPassword, loading, error, setError, mounted, handleHostSubmit, handleAuthSubmit, handleRowAction, loginDemo, logoUrl }: ThemeProps) {
 
   /* ── MENU ─────────────────────────────────────────── */
   if (activeForm === "menu") return (
@@ -49,11 +49,17 @@ export default function ThemeOne({ activeForm, setActiveForm, authRole, hostCode
       {/* Header */}
       <div className="relative z-10 text-center mb-10"
         style={{ opacity: mounted ? 1 : 0, transform: mounted ? "translateY(0)" : "translateY(-16px)", transition: "all 0.7s ease" }}>
-        <div className="flex items-center justify-center gap-2.5 mb-4">
-          <div className="w-9 h-9 rounded-lg bg-gold/15 border border-gold/25 flex items-center justify-center shadow-[0_0_15px_rgba(212,175,55,0.25)]">
-            <Sparkles className="h-4 w-4 text-gold" />
-          </div>
-          <span className="text-xs font-semibold tracking-[0.3em] text-gold/80 uppercase">SocialesVIP</span>
+        <div className="flex items-center justify-center gap-2.5 mb-4 min-h-[48px]">
+          {logoUrl ? (
+            <img src={logoUrl} alt="Logo" className="max-h-14 object-contain filter drop-shadow-[0_2px_10px_rgba(212,175,55,0.25)]" />
+          ) : (
+            <>
+              <div className="w-9 h-9 rounded-lg bg-gold/15 border border-gold/25 flex items-center justify-center shadow-[0_0_15px_rgba(212,175,55,0.25)]">
+                <Sparkles className="h-4 w-4 text-gold" />
+              </div>
+              <span className="text-xs font-semibold tracking-[0.3em] text-gold/80 uppercase">SocialesVIP</span>
+            </>
+          )}
         </div>
         <h1 className="text-3xl md:text-4xl font-light text-white mb-3">
           Gestión Premium de{" "}

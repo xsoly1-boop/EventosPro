@@ -14,6 +14,7 @@ import SettingsManager from "@/components/modules/settings/SettingsManager";
 import CalendarDashboard from "@/components/modules/calendar/CalendarDashboard";
 import EventEditor from "@/components/modules/events/EventEditor";
 import HostPortal from "@/components/modules/events/HostPortal";
+import PersonalizationManager from "@/components/modules/personalization/PersonalizationManager";
 
 import { 
   LayoutDashboard, 
@@ -28,22 +29,25 @@ import {
   User, 
   Sparkles,
   ChevronRight,
-  Plus
+  Plus,
+  Palette
 } from "lucide-react";
 
-type TabType = "overview" | "tables" | "quotes" | "finance" | "timeline" | "scanner" | "settings" | "calendar" | "events";
+type TabType = "overview" | "tables" | "quotes" | "finance" | "timeline" | "scanner" | "settings" | "calendar" | "events" | "personalization";
 
 export default function Home() {
   const { user, loading, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>("overview");
   const [loginTheme, setLoginTheme] = useState<string>("1");
+  const [logoUrl, setLogoUrl] = useState<string>("");
 
   useEffect(() => {
     if (!db) return;
     const unsubBranding = onSnapshot(doc(db, "settings", "branding"), (snap) => {
       if (snap.exists()) {
-        const theme = snap.data()?.loginTheme;
-        if (theme) setLoginTheme(theme);
+        const data = snap.data();
+        if (data?.loginTheme) setLoginTheme(data.loginTheme);
+        if (data?.logoUrl !== undefined) setLogoUrl(data.logoUrl);
       }
     });
     return () => unsubBranding();
@@ -117,6 +121,7 @@ export default function Home() {
     { id: "timeline", label: "Cronograma", icon: Clock, roles: ["admin", "dueño", "gerencia", "staff"] },
     { id: "scanner", label: "Escáner & Aforo", icon: QrCode, roles: ["admin", "dueño", "gerencia", "host"] },
     { id: "settings", label: "Personal & Config.", icon: Sliders, roles: ["admin", "dueño", "gerencia"] },
+    { id: "personalization", label: "Personalización", icon: Palette, roles: ["admin", "dueño"] },
   ];
 
   const userPermissions = dbPermissions.find(p => p.role === user?.role);
@@ -160,6 +165,8 @@ export default function Home() {
         return <QRScanner />;
       case "settings":
         return <SettingsManager />;
+      case "personalization":
+        return <PersonalizationManager />;
       case "calendar":
         return <CalendarDashboard />;
       case "events":
@@ -201,11 +208,17 @@ export default function Home() {
       <aside className={`w-full md:w-64 backdrop-blur-md bg-black/40 border-b md:border-b-0 md:border-r ${loginTheme === "1" ? "border-gold/20" : "border-white/5"} p-6 flex flex-col justify-between shrink-0 md:h-screen md:sticky md:top-0 z-20`}>
         <div className="space-y-8">
           {/* Logo Branding */}
-          <div className="flex items-center gap-2">
-            <Sparkles className="text-gold h-5 w-5 animate-pulse" />
-            <span className="text-sm font-semibold tracking-[0.2em] text-gold uppercase">
-              SocialesVIP
-            </span>
+          <div className="flex items-center gap-2 min-h-[32px]">
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="max-h-8 max-w-[180px] object-contain" />
+            ) : (
+              <>
+                <Sparkles className="text-gold h-5 w-5 animate-pulse" />
+                <span className="text-sm font-semibold tracking-[0.2em] text-gold uppercase">
+                  SocialesVIP
+                </span>
+              </>
+            )}
           </div>
 
           {/* User profile card */}
@@ -714,6 +727,7 @@ function OverviewTab({ user, setActiveTab, allowedTabs, loginTheme }: OverviewPr
                         {tab.id === "scanner" && "Escanea códigos QR de aforo en la entrada principal."}
                         {tab.id === "settings" && "Gestiona al personal y los límites físicos del salón."}
                         {tab.id === "calendar" && "Verifica disponibilidad del salón y agenda/confirma reservaciones de eventos."}
+                        {tab.id === "personalization" && "Personaliza el logotipo del portal y selecciona temas exclusivos."}
                       </p>
                     </div>
                   </div>
@@ -746,6 +760,7 @@ function OverviewTab({ user, setActiveTab, allowedTabs, loginTheme }: OverviewPr
                     {tab.id === "scanner" && "Escanea códigos QR de aforo en la entrada principal."}
                     {tab.id === "settings" && "Gestiona al personal y los límites físicos del salón."}
                     {tab.id === "calendar" && "Verifica disponibilidad del salón y agenda/confirma reservaciones de eventos."}
+                    {tab.id === "personalization" && "Personaliza el logotipo del portal y selecciona temas exclusivos."}
                   </p>
                 </div>
               </div>
