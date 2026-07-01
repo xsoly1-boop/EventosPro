@@ -104,7 +104,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, pass: string) => {
-    setLoading(true);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, pass);
       const firebaseUser = userCredential.user;
@@ -119,7 +118,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }, { merge: true });
       }
     } catch (err) {
-      setLoading(false);
       throw err;
     }
   };
