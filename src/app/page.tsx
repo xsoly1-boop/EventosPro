@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
-import { doc, collection, onSnapshot, setDoc } from "firebase/firestore";
+import { doc, collection, onSnapshot, setDoc, getDoc } from "firebase/firestore";
 import LoginPortal from "@/components/modules/login/LoginPortal";
 import TableMap from "@/components/modules/tables/TableMap";
 import QuotesManager from "@/components/modules/quotes/QuotesManager";
@@ -434,6 +434,49 @@ function OverviewTab({
       img.src = event.target?.result as string;
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleApproveReport = async (report: any) => {
+    if (!db) return;
+    if (window.confirm(`¿Seguro que deseas autorizar el pago por $${report.amount.toLocaleString()} de ${report.clientName}?`)) {
+      try {
+        await setDoc(doc(db, "payment_reports", report.id), { status: "approved" }, { merge: true });
+
+        const eventRef = doc(db, "events", report.eventId);
+        const eventSnap = await getDoc(eventRef);
+        if (eventSnap.exists()) {
+          const currentPaid = eventSnap.data().paidAmount || 0;
+          await setDoc(eventRef, { paidAmount: currentPaid + report.amount }, { merge: true });
+        }
+
+        const txId = `tx-${Date.now()}`;
+        await setDoc(doc(db, "transactions", txId), {
+          amount: report.amount,
+          type: "abono",
+          method: "transferencia",
+          reference: `Abono Autorizado: ${report.reference} (${report.clientName})`,
+          date: report.date || new Date().toISOString().split("T")[0]
+        });
+
+        alert("Pago autorizado con éxito. Se ha reflejado en el evento e ingresado a las finanzas.");
+      } catch (err) {
+        console.error(err);
+        alert("Error al autorizar el pago.");
+      }
+    }
+  };
+
+  const handleRejectReport = async (reportId: string) => {
+    if (!db) return;
+    if (window.confirm("¿Seguro que deseas rechazar este reporte de pago?")) {
+      try {
+        await setDoc(doc(db, "payment_reports", reportId), { status: "rejected" }, { merge: true });
+        alert("Reporte de pago rechazado.");
+      } catch (err) {
+        console.error(err);
+        alert("Error al rechazar el reporte.");
+      }
+    }
   };
 
   useEffect(() => {
@@ -892,23 +935,39 @@ function OverviewTab({
                     Evento: {rep.eventTitle} | Ref: {rep.reference} | Fecha: {rep.date}
                   </div>
                 </div>
-                <div className="flex gap-2 self-end sm:self-auto shrink-0">
+                <div className="flex gap-1.5 self-end sm:self-auto shrink-0 items-center">
                   {rep.receiptImage && setDashboardReceiptPreview && (
                     <button
                       type="button"
                       onClick={() => setDashboardReceiptPreview(rep.receiptImage)}
-                      className="py-1 px-3 bg-gold/10 hover:bg-gold/20 border border-gold/20 text-gold rounded-lg text-[10px] uppercase font-bold transition-all"
+                      className="py-1 px-2.5 bg-gold/10 hover:bg-gold/25 border border-gold/20 text-gold rounded-lg text-[10px] uppercase font-bold transition-all"
                     >
                       Ver Ticket
                     </button>
                   )}
                   <button
                     type="button"
-                    onClick={() => setActiveTab("finance")}
-                    className="py-1 px-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg text-[10px] uppercase font-bold transition-all"
+                    onClick={() => handleApproveReport(rep)}
+                    className="py-1 px-2.5 bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-500/20 text-emerald-400 rounded-lg text-[10px] uppercase font-bold transition-all"
                   >
-                    Verificar en Finanzas
+                    Autorizar
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRejectReport(rep.id)}
+                    className="py-1 px-2.5 bg-red-500/10 hover:bg-red-500/25 border border-red-500/20 text-red-400 rounded-lg text-[10px] uppercase font-bold transition-all"
+                  >
+                    Rechazar
+                  </button>
+                  {allowedTabs.some(t => t.id === "finance") && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("finance")}
+                      className="py-1 px-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg text-[10px] uppercase font-bold transition-all"
+                    >
+                      Ir a Finanzas
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
