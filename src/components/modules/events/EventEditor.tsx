@@ -47,7 +47,7 @@ interface EventData {
   title: string;
   date: string;
   guestLimit: number;
-  status: "cotizacion" | "pre-reserva" | "contrato";
+  status: "borrador" | "cotizacion" | "pre-reserva" | "contrato";
   openSeatingMode: boolean | "hibrido";
   clientInfo: ClientInfo;
   menu: string; // e.g. "Espagueti al burro, lomo adobado, papas al gratin"
@@ -73,7 +73,7 @@ export default function EventEditor() {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [guestLimit, setGuestLimit] = useState(150);
-  const [status, setStatus] = useState<"cotizacion" | "pre-reserva" | "contrato">("cotizacion");
+  const [status, setStatus] = useState<"borrador" | "cotizacion" | "pre-reserva" | "contrato">("borrador");
   const [openSeatingMode, setOpenSeatingMode] = useState<boolean | "hibrido">(false);
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
@@ -180,7 +180,7 @@ export default function EventEditor() {
           title: data.title || "Evento Sin Nombre",
           date: safeFormatDate(data.date),
           guestLimit: data.guestLimit || data.guestsCount || 150,
-          status: data.status || "cotizacion",
+          status: data.status || "borrador",
           openSeatingMode: data.openSeatingMode !== undefined ? data.openSeatingMode : false,
           clientInfo: data.clientInfo || { name: "", phone: "", email: "", rfc: "", address: "" },
           menu: data.menu || "",
@@ -285,7 +285,7 @@ export default function EventEditor() {
     setTitle("");
     setDate(new Date().toISOString().split("T")[0]);
     setGuestLimit(150);
-    setStatus("cotizacion");
+    setStatus("borrador");
     setOpenSeatingMode(false);
     setClientName("");
     setClientPhone("");
@@ -380,7 +380,8 @@ export default function EventEditor() {
 
   const promoteEventStatus = async (eventId: string, currentStatus: string) => {
     if (!db) return;
-    const nextStatusMap: { [key: string]: "pre-reserva" | "contrato" } = {
+    const nextStatusMap: { [key: string]: "cotizacion" | "pre-reserva" | "contrato" } = {
+      "borrador": "cotizacion",
       "cotizacion": "pre-reserva",
       "pre-reserva": "contrato"
     };
@@ -549,6 +550,7 @@ export default function EventEditor() {
                     onChange={(e) => setStatus(e.target.value as any)}
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-2 py-2 text-xs text-white focus:outline-none focus:border-gold/30"
                   >
+                    <option value="borrador">Borrador (Nuevo)</option>
                     <option value="cotizacion">Cotización (Prospecto)</option>
                     <option value="pre-reserva">Pre-reserva (Pendiente)</option>
                     <option value="contrato">Contrato Firmado (Bloqueado)</option>
@@ -933,9 +935,11 @@ export default function EventEditor() {
                             ? "bg-green-500/10 border border-green-500/20 text-green-400"
                             : ev.status === "pre-reserva"
                             ? "bg-gold/10 border border-gold/20 text-gold"
-                            : "bg-blue-500/10 border border-blue-500/20 text-blue-400"
+                            : ev.status === "cotizacion"
+                            ? "bg-blue-500/10 border border-blue-500/20 text-blue-400"
+                            : "bg-gray-500/10 border border-gray-500/20 text-gray-400"
                         }`}>
-                          {ev.status === "contrato" ? "Contrato" : ev.status === "pre-reserva" ? "Pre-reserva" : "Cotización"}
+                          {ev.status === "contrato" ? "Contrato" : ev.status === "pre-reserva" ? "Pre-reserva" : ev.status === "cotizacion" ? "Cotización" : "Borrador"}
                         </span>
 
                         <span className="text-[10px] text-gray-400 font-mono font-semibold flex items-center gap-1">
@@ -1010,7 +1014,42 @@ export default function EventEditor() {
             </div>
           ) : (
             // Visual Kanban Board columns grid
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              {/* Column 0: Borradores */}
+              <div className="glass-dark border border-white/5 rounded-2xl p-4 space-y-4">
+                <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Borradores ({events.filter(e => e.status === "borrador").length})
+                  </span>
+                </div>
+                <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                  {events.filter(e => e.status === "borrador").map((ev) => {
+                    const baseCost = (ev.packagePrice || 350) * (ev.guestLimit || 150);
+                    const subTotal = baseCost + ev.fixedServices.reduce((acc, s) => acc + s.price, 0);
+                    const total = Math.max(0, subTotal * (1 - ev.discountPercent / 100) - ev.discountFixed);
+                    return (
+                      <div key={ev.id} className="glass p-4 rounded-xl border border-white/5 hover:border-gray-500/30 transition-all space-y-3">
+                        <div>
+                          <h4 className="text-xs font-semibold text-white truncate">{ev.title}</h4>
+                          <p className="text-[10px] text-gray-400 mt-1">{ev.date} • {ev.clientInfo.name}</p>
+                          <span className="text-[11px] font-mono text-gold font-semibold block mt-2">${total.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-t border-white/5 pt-2">
+                          <div className="flex gap-2 items-center">
+                            <button onClick={() => handleEditClick(ev)} className="text-[10px] text-gray-400 hover:text-white">Detalles</button>
+                            <button onClick={() => handleCopyShareLink(ev.id)} className="p-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-colors" title="Copiar Enlace Portal Anfitrión"><Share2 className="h-3 w-3" /></button>
+                          </div>
+                          <button onClick={() => promoteEventStatus(ev.id, "borrador")} className="px-2 py-1 bg-blue-500/10 hover:bg-blue-500 text-blue-400 hover:text-white rounded text-[9px] uppercase font-bold tracking-wider transition-colors flex items-center gap-1">Cotizar <ArrowRight className="h-2.5 w-2.5" /></button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {events.filter(e => e.status === "borrador").length === 0 && (
+                    <p className="text-[11px] text-gray-600 italic text-center py-4">Sin borradores</p>
+                  )}
+                </div>
+              </div>
+
               {/* Column 1: Cotizaciones */}
               <div className="glass-dark border border-white/5 rounded-2xl p-4 space-y-4">
                 <div className="flex justify-between items-center border-b border-white/5 pb-2">
