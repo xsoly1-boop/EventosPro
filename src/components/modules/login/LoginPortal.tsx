@@ -29,16 +29,19 @@ export default function LoginPortal() {
     setMounted(true);
     if (!db) return;
     
-    // Explicitly write to settings/branding to ensure theme "1" is the selected one!
-    const forceThemeOne = async () => {
+    // Only set default branding theme in Firestore if not existing yet to avoid overwriting user selections
+    const checkDefaultBranding = async () => {
       try {
-        const { doc, setDoc } = await import("firebase/firestore");
-        await setDoc(doc(db, "settings", "branding"), { loginTheme: "1" }, { merge: true });
+        const { doc, getDoc, setDoc } = await import("firebase/firestore");
+        const snap = await getDoc(doc(db, "settings", "branding"));
+        if (!snap.exists() || !snap.data()?.loginTheme) {
+          await setDoc(doc(db, "settings", "branding"), { loginTheme: "1" }, { merge: true });
+        }
       } catch (e) {
         console.error(e);
       }
     };
-    forceThemeOne();
+    checkDefaultBranding();
 
     // Subscribe to branding settings for real-time theme switching
     const unsub = onSnapshot(doc(db, "settings", "branding"), (snap) => {
