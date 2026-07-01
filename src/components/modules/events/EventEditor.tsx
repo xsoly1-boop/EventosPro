@@ -17,7 +17,8 @@ import {
   ArrowRight,
   TrendingUp,
   Tag,
-  Share2
+  Share2,
+  Search
 } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { 
@@ -69,6 +70,18 @@ export default function EventEditor() {
   const [editingEvent, setEditingEvent] = useState<EventData | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "kanban">("kanban");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredEvents = events.filter((ev) => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      (ev.title || "").toLowerCase().includes(q) ||
+      (ev.clientInfo?.name || "").toLowerCase().includes(q) ||
+      (ev.clientInfo?.phone || "").toLowerCase().includes(q) ||
+      (ev.id || "").toLowerCase().includes(q)
+    );
+  });
 
   // Form Fields State
   const [title, setTitle] = useState("");
@@ -997,23 +1010,39 @@ export default function EventEditor() {
       ) : (
         // List/Pipeline Container
         <div className="space-y-6">
-          <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 w-fit gap-1">
-            <button
-              onClick={() => setViewMode("kanban")}
-              className={`py-1.5 px-4 rounded-lg text-xs font-semibold tracking-wide transition-all duration-300 ${
-                viewMode === "kanban" ? "bg-gold text-obsidian" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              Pipeline Kanban
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`py-1.5 px-4 rounded-lg text-xs font-semibold tracking-wide transition-all duration-300 ${
-                viewMode === "list" ? "bg-gold text-obsidian" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              Vista Tarjetas
-            </button>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 w-fit gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewMode("kanban")}
+                className={`py-1.5 px-4 rounded-lg text-xs font-semibold tracking-wide transition-all duration-300 ${
+                  viewMode === "kanban" ? "bg-gold text-obsidian" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Pipeline Kanban
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                className={`py-1.5 px-4 rounded-lg text-xs font-semibold tracking-wide transition-all duration-300 ${
+                  viewMode === "list" ? "bg-gold text-obsidian" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Vista Tarjetas
+              </button>
+            </div>
+
+            {/* Live Search Bar */}
+            <div className="relative w-full sm:max-w-xs">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Buscar por cliente, evento o clave..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-gold/40 text-xs transition-all"
+              />
+            </div>
           </div>
 
           {loading ? (
@@ -1023,7 +1052,7 @@ export default function EventEditor() {
             </div>
           ) : viewMode === "list" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {events.map((ev) => {
+              {filteredEvents.map((ev) => {
                 const baseCost = (ev.packagePrice || 350) * (ev.guestLimit || 150);
                 const subTotal = baseCost + ev.fixedServices.reduce((acc, s) => acc + s.price, 0);
                 const discount = (subTotal * ev.discountPercent / 100) + ev.discountFixed;
@@ -1110,9 +1139,9 @@ export default function EventEditor() {
                 );
               })}
 
-              {events.length === 0 && (
+              {filteredEvents.length === 0 && (
                 <div className="col-span-2 text-center py-20 text-xs text-gray-500 italic">
-                  No hay contratos o reservas registradas en el sistema.
+                  No se encontraron eventos coincidentes con la búsqueda.
                 </div>
               )}
             </div>
@@ -1123,11 +1152,11 @@ export default function EventEditor() {
               <div className="glass-dark border border-white/5 rounded-2xl p-4 space-y-4">
                 <div className="flex justify-between items-center border-b border-white/5 pb-2">
                   <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider">
-                    Cotizaciones ({events.filter(e => e.status === "cotizacion" || e.status === "borrador").length})
+                    Cotizaciones ({filteredEvents.filter(e => e.status === "cotizacion" || e.status === "borrador").length})
                   </span>
                 </div>
                 <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-                  {events.filter(e => e.status === "cotizacion" || e.status === "borrador").map((ev) => {
+                  {filteredEvents.filter(e => e.status === "cotizacion" || e.status === "borrador").map((ev) => {
                     const baseCost = (ev.packagePrice || 350) * (ev.guestLimit || 150);
                     const subTotal = baseCost + ev.fixedServices.reduce((acc, s) => acc + s.price, 0);
                     const total = Math.max(0, subTotal * (1 - ev.discountPercent / 100) - ev.discountFixed);
@@ -1169,7 +1198,7 @@ export default function EventEditor() {
                       </div>
                     );
                   })}
-                  {events.filter(e => e.status === "cotizacion" || e.status === "borrador").length === 0 && (
+                  {filteredEvents.filter(e => e.status === "cotizacion" || e.status === "borrador").length === 0 && (
                     <p className="text-[11px] text-gray-600 italic text-center py-4">Sin cotizaciones</p>
                   )}
                 </div>
@@ -1179,11 +1208,11 @@ export default function EventEditor() {
               <div className="glass-dark border border-white/5 rounded-2xl p-4 space-y-4">
                 <div className="flex justify-between items-center border-b border-white/5 pb-2">
                   <span className="text-xs font-semibold text-gold uppercase tracking-wider">
-                    Pre-reservas ({events.filter(e => e.status === "pre-reserva").length})
+                    Pre-reservas ({filteredEvents.filter(e => e.status === "pre-reserva").length})
                   </span>
                 </div>
                 <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-                  {events.filter(e => e.status === "pre-reserva").map((ev) => {
+                  {filteredEvents.filter(e => e.status === "pre-reserva").map((ev) => {
                     const baseCost = (ev.packagePrice || 350) * (ev.guestLimit || 150);
                     const subTotal = baseCost + ev.fixedServices.reduce((acc, s) => acc + s.price, 0);
                     const total = Math.max(0, subTotal * (1 - ev.discountPercent / 100) - ev.discountFixed);
@@ -1220,7 +1249,7 @@ export default function EventEditor() {
                       </div>
                     );
                   })}
-                  {events.filter(e => e.status === "pre-reserva").length === 0 && (
+                  {filteredEvents.filter(e => e.status === "pre-reserva").length === 0 && (
                     <p className="text-[11px] text-gray-600 italic text-center py-4">Sin pre-reservas</p>
                   )}
                 </div>
@@ -1230,11 +1259,11 @@ export default function EventEditor() {
               <div className="glass-dark border border-white/5 rounded-2xl p-4 space-y-4">
                 <div className="flex justify-between items-center border-b border-white/5 pb-2">
                   <span className="text-xs font-semibold text-green-400 uppercase tracking-wider">
-                    Contratos Firmados ({events.filter(e => e.status === "contrato").length})
+                    Contratos Firmados ({filteredEvents.filter(e => e.status === "contrato").length})
                   </span>
                 </div>
                 <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-                  {events.filter(e => e.status === "contrato").map((ev) => {
+                  {filteredEvents.filter(e => e.status === "contrato").map((ev) => {
                     const baseCost = (ev.packagePrice || 350) * (ev.guestLimit || 150);
                     const subTotal = baseCost + ev.fixedServices.reduce((acc, s) => acc + s.price, 0);
                     const total = Math.max(0, subTotal * (1 - ev.discountPercent / 100) - ev.discountFixed);
@@ -1268,7 +1297,7 @@ export default function EventEditor() {
                       </div>
                     );
                   })}
-                  {events.filter(e => e.status === "contrato").length === 0 && (
+                  {filteredEvents.filter(e => e.status === "contrato").length === 0 && (
                     <p className="text-[11px] text-gray-600 italic text-center py-4">Sin contratos firmados</p>
                   )}
                 </div>
