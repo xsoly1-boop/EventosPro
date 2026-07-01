@@ -134,6 +134,9 @@ export default function Home() {
 
   const allowedTabs = navigationItems.filter(item => {
     if (!user) return false;
+    // Admin and dueño always have access to all modules
+    if (user.role === "admin" || user.role === "dueño") return true;
+    
     if (userPermissions && userPermissions.modules) {
       const moduleMapping: Record<string, string> = {
         overview: "dashboard",

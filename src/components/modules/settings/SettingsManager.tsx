@@ -278,7 +278,26 @@ export default function SettingsManager() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data.permissions) {
-          const loaded: any[] = [...data.permissions];
+          const defaultsMap: Record<string, Record<string, boolean>> = {
+            admin: { dashboard: true, mesas: true, calendario: true, cotizaciones: true, finanzas: true, cronograma: true, escáner: true, eventos: true },
+            dueño: { dashboard: true, mesas: true, calendario: true, cotizaciones: true, finanzas: true, cronograma: true, escáner: true, eventos: true },
+            gerencia: { dashboard: true, mesas: true, calendario: true, cotizaciones: true, finanzas: false, cronograma: true, escáner: true, eventos: true },
+            host: { dashboard: true, mesas: true, calendario: true, cotizaciones: false, finanzas: false, cronograma: false, escáner: true, eventos: false },
+            staff: { dashboard: true, mesas: false, calendario: true, cotizaciones: false, finanzas: false, cronograma: true, escáner: false, eventos: false },
+            client: { dashboard: true, mesas: true, calendario: true, cotizaciones: false, finanzas: false, cronograma: false, escáner: false, eventos: false }
+          };
+
+          const loaded: any[] = data.permissions.map((r: any) => {
+            const defaultModules = defaultsMap[r.role] || {};
+            return {
+              ...r,
+              modules: {
+                ...defaultModules,
+                ...(r.modules || {})
+              }
+            };
+          });
+
           if (!loaded.some(r => r.role === "client")) {
             loaded.push({ 
               role: "client", 
