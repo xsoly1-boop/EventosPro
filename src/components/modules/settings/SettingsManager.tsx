@@ -23,7 +23,9 @@ import {
   Sparkles
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { db } from "@/lib/firebase";
+import { db, firebaseConfig } from "@/lib/firebase";
+import { initializeApp } from "firebase/app";
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { 
   collection, 
   doc, 
@@ -45,7 +47,7 @@ interface StaffMember {
 
 export default function SettingsManager() {
   const { user } = useAuth();
-  const [activeSubTab, setActiveSubTab] = useState<"staff" | "salon" | "roles" | "catalog" | "scanner">("staff");
+  const [activeSubTab, setActiveSubTab] = useState<"staff" | "accounts" | "salon" | "roles" | "catalog" | "scanner">("staff");
 
   // Scanner Codes State
   const [scannerCodes, setScannerCodes] = useState<{ id: string; code: string; label: string; createdBy: string; createdAt: string }[]>([]);
@@ -82,6 +84,15 @@ export default function SettingsManager() {
     }
   };
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
+
+  // Platform Users (dueño, gerencia, host, staff)
+  const [platformUsers, setPlatformUsers] = useState<any[]>([]);
+  const [newAccountName, setNewAccountName] = useState("");
+  const [newAccountEmail, setNewAccountEmail] = useState("");
+  const [newAccountPassword, setNewAccountPassword] = useState("");
+  const [newAccountRole, setNewAccountRole] = useState<"dueño" | "gerencia" | "host" | "staff">("gerencia");
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const [accountError, setAccountError] = useState("");
   
   const isGlobalEditable = user?.role === "admin" || user?.role === "dueño";
 
@@ -233,6 +244,23 @@ export default function SettingsManager() {
       }
     });
 
+    // 1b. Subscribe to Users Collection (Platform Accounts)
+    const usersRef = collection(db, "users");
+    const unsubscribeUsers = onSnapshot(usersRef, (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach((docSnap) => {
+        const d = docSnap.data();
+        list.push({
+          id: docSnap.id,
+          displayName: d.displayName || "Sin nombre",
+          email: d.email || "Sin email",
+          role: d.role || "client",
+          createdAt: d.createdAt || null
+        });
+      });
+      setPlatformUsers(list);
+    });
+
     // 2. Subscribe to Salon settings
     const salonDocRef = doc(db, "settings", "salon");
     const unsubscribeSalon = onSnapshot(salonDocRef, (docSnap) => {
@@ -313,6 +341,7 @@ export default function SettingsManager() {
 
     return () => {
       unsubscribeStaff();
+      unsubscribeUsers();
       unsubscribeSalon();
       unsubscribeRoles();
     };
@@ -486,6 +515,80 @@ export default function SettingsManager() {
     setNewEmail("");
   };
 
+  const handleCreatePlatformAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAccountName || !newAccountEmail || !newAccountPassword) {
+      setAccountError("Por favor completa todos los campos.");
+      return;
+    }
+    if (newAccountPassword.length < 6) {
+      setAccountError("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+
+    setIsCreatingAccount(true);
+    setAccountError("");
+
+    let secondaryApp: any = null;
+    try {
+      const appName = `sec-app-${Date.now()}`;
+      secondaryApp = initializeApp(firebaseConfig, appName);
+      const secondaryAuth = getAuth(secondaryApp);
+
+      const userCred = await createUserWithEmailAndPassword(
+        secondaryAuth,
+        newAccountEmail.trim(),
+        newAccountPassword
+      );
+
+      const uid = userCred.user.uid;
+
+      if (db) {
+        await setDoc(doc(db, "users", uid), {
+          displayName: newAccountName.trim(),
+          email: newAccountEmail.trim().toLowerCase(),
+          role: newAccountRole,
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      setNewAccountName("");
+      setNewAccountEmail("");
+      setNewAccountPassword("");
+      setNewAccountRole("gerencia");
+      alert(`Usuario con rol ${newAccountRole.toUpperCase()} creado con éxito.`);
+    } catch (err: any) {
+      console.error(err);
+      if (err.code === "auth/email-already-in-use") {
+        setAccountError("El correo electrónico ya está registrado por otro usuario.");
+      } else {
+        setAccountError(err.message || "Error al crear la cuenta de usuario.");
+      }
+    } finally {
+      setIsCreatingAccount(false);
+      if (secondaryApp) {
+        try {
+          await secondaryApp.delete();
+        } catch (e) {
+          console.error("Error deleting secondary app instance:", e);
+        }
+      }
+    }
+  };
+
+  const handleDeletePlatformAccount = async (uid: string, name: string) => {
+    if (!db) return;
+    if (window.confirm(`¿Seguro que deseas revocar el acceso a ${name}? Esto borrará su perfil y cambiará su rol de acceso a Cliente.`)) {
+      try {
+        await deleteDoc(doc(db, "users", uid));
+        alert("Acceso revocado con éxito.");
+      } catch (err) {
+        console.error(err);
+        alert("Error al eliminar la cuenta de usuario.");
+      }
+    }
+  };
+
   const handleToggleStatus = async (id: string) => {
     const member = staff.find(m => m.id === id);
     if (!member) return;
@@ -615,17 +718,30 @@ export default function SettingsManager() {
             Gestionar Personal
           </button>
           {user?.role !== "gerencia" && (
-            <button
-              onClick={() => setActiveSubTab("roles")}
-              className={`py-1.5 px-4 rounded-md text-xs tracking-wide transition-all duration-300 flex items-center gap-2 ${
-                activeSubTab === "roles"
-                  ? "bg-gold text-obsidian font-semibold"
-                  : "text-gray-400 hover:text-white"
-              }`}
-            >
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Roles & Permisos
-            </button>
+            <>
+              <button
+                onClick={() => setActiveSubTab("accounts")}
+                className={`py-1.5 px-4 rounded-md text-xs tracking-wide transition-all duration-300 flex items-center gap-2 ${
+                  activeSubTab === "accounts"
+                    ? "bg-gold text-obsidian font-semibold"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                Cuentas de Acceso (Usuarios)
+              </button>
+              <button
+                onClick={() => setActiveSubTab("roles")}
+                className={`py-1.5 px-4 rounded-md text-xs tracking-wide transition-all duration-300 flex items-center gap-2 ${
+                  activeSubTab === "roles"
+                    ? "bg-gold text-obsidian font-semibold"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Roles & Permisos
+              </button>
+            </>
           )}
           <button
             onClick={() => setActiveSubTab("salon")}
@@ -832,6 +948,172 @@ export default function SettingsManager() {
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-gray-500 italic">
                         No hay personal registrado en el salón.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Accounts & Users Management Content */}
+      {activeSubTab === "accounts" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Create User Form */}
+          <div className="glass-dark rounded-2xl p-6 border border-white/5 h-fit lg:col-span-1 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <UserPlus className="text-gold h-4 w-4" />
+              <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
+                Crear Cuenta de Acceso
+              </h3>
+            </div>
+
+            <form onSubmit={handleCreatePlatformAccount} className="space-y-4">
+              <div>
+                <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                  Nombre Completo / Cargo
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Carmen Herrera"
+                  value={newAccountName}
+                  onChange={(e) => setNewAccountName(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-light"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                  Correo Electrónico
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="ej. carmen@socialesvip.com"
+                  value={newAccountEmail}
+                  onChange={(e) => setNewAccountEmail(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-light font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                  Contraseña de Acceso
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Mínimo 6 caracteres"
+                  value={newAccountPassword}
+                  onChange={(e) => setNewAccountPassword(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30 font-light font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">
+                  Rol de Acceso en Plataforma
+                </label>
+                <select
+                  value={newAccountRole}
+                  onChange={(e) => setNewAccountRole(e.target.value as any)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-gold/30"
+                >
+                  <option value="dueño">Dueño / Propietario (Acceso Total)</option>
+                  <option value="gerencia">Gerencia (Logística y Operación)</option>
+                  <option value="host">Host / Hostess (Recepción y Listas)</option>
+                  <option value="staff">Personal Administrativo (Lectura)</option>
+                </select>
+              </div>
+
+              {accountError && (
+                <p className="text-red-400 text-[10px] font-mono leading-relaxed bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg">
+                  ⚠️ {accountError}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={isCreatingAccount}
+                className="w-full py-3 bg-gold text-obsidian rounded-xl text-xs font-semibold uppercase hover:bg-gold-hover transition-all duration-300 flex items-center justify-center gap-2 active:scale-[0.98] mt-2 shadow-[0_4px_15px_rgba(212,175,55,0.15)] disabled:opacity-50"
+              >
+                {isCreatingAccount ? "Registrando en Auth..." : "Crear Usuario"}
+              </button>
+            </form>
+          </div>
+
+          {/* Accounts List */}
+          <div className="glass-dark rounded-2xl p-6 border border-white/5 lg:col-span-2 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <ShieldCheck className="text-gold h-4 w-4" />
+              <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
+                Cuentas de Acceso Registradas
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-light">
+                <thead>
+                  <tr className="text-gray-400 border-b border-white/5 uppercase text-[9px] tracking-wider font-mono">
+                    <th className="py-3 px-4">Usuario</th>
+                    <th className="py-3 px-4">Correo Electrónico</th>
+                    <th className="py-3 px-4">Rol Asignado</th>
+                    <th className="py-3 px-4 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {platformUsers.map((acct) => (
+                    <tr key={acct.id} className="text-gray-300 hover:bg-white/[0.01]">
+                      <td className="py-4 px-4 font-normal text-white">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center border border-gold/20 text-gold font-bold text-xs uppercase">
+                            {acct.displayName.substring(0, 2)}
+                          </div>
+                          <span>{acct.displayName}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 font-mono text-[11px] text-gray-400">
+                        {acct.email}
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider ${
+                          acct.role === "admin" || acct.role === "dueño"
+                            ? "bg-amber-500/10 border border-amber-500/25 text-amber-400"
+                            : acct.role === "gerencia"
+                            ? "bg-purple-500/10 border border-purple-500/25 text-purple-400"
+                            : acct.role === "host"
+                            ? "bg-emerald-500/10 border border-emerald-500/25 text-emerald-400"
+                            : "bg-blue-500/10 border border-blue-500/25 text-blue-400"
+                        }`}>
+                          {acct.role === "admin" ? "Admin Master" :
+                           acct.role === "dueño" ? "Dueño" :
+                           acct.role === "gerencia" ? "Gerencia" :
+                           acct.role === "host" ? "Host / Hostess" :
+                           acct.role === "staff" ? "Staff" : acct.role}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        {acct.role !== "admin" ? (
+                          <button
+                            onClick={() => handleDeletePlatformAccount(acct.id, acct.displayName)}
+                            className="py-1 px-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg transition-all duration-300 text-[10px] uppercase font-bold"
+                            title="Revocar Acceso"
+                          >
+                            Revocar Acceso
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-gray-600 italic">Protegido</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {platformUsers.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-gray-500 italic">
+                        Cargando cuentas de acceso...
                       </td>
                     </tr>
                   )}
