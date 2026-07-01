@@ -23,6 +23,7 @@ import { db } from "@/lib/firebase";
 import { 
   collection, 
   doc, 
+  getDoc,
   setDoc, 
   updateDoc, 
   deleteDoc, 
@@ -171,7 +172,18 @@ export default function EventEditor() {
   useEffect(() => {
     if (!db) return;
 
-    const unsubscribe = onSnapshot(collection(db, "events"), (snapshot) => {
+    let eventsList: EventData[] = [];
+    let quotesList: EventData[] = [];
+
+    const updateCombinedList = () => {
+      // Filter out quotes that are already converted to real events to avoid duplicate cards
+      const activeQuotes = quotesList.filter(q => {
+        return !eventsList.some(e => e.id === q.id || e.packageName === q.id);
+      });
+      setEvents([...eventsList, ...activeQuotes]);
+    };
+
+    const unsubscribeEvents = onSnapshot(collection(db, "events"), (snapshot) => {
       const list: EventData[] = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
@@ -246,14 +258,61 @@ export default function EventEditor() {
         defaults.forEach(async (ev) => {
           await setDoc(doc(db, "events", ev.id), ev);
         });
-        setEvents(defaults);
+        eventsList = defaults;
       } else {
-        setEvents(list);
+        eventsList = list;
       }
+      updateCombinedList();
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    const unsubscribeQuotes = onSnapshot(collection(db, "quotes"), (snapshot) => {
+      const list: EventData[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        // Only include quotes that are draft (borrador) or sent (enviada)
+        if (data.status === "borrador" || data.status === "enviada") {
+          const items = data.items || [];
+          const basePkgItem = items.find((it: any) => it.id === "base-package" || it.id === "rents");
+          const basePkgPrice = basePkgItem ? Number(basePkgItem.price) : 350;
+          const basePkgName = basePkgItem ? basePkgItem.name : "Paquete Básico Imperial";
+
+          list.push({
+            id: docSnap.id,
+            title: `Cotización: ${data.clientName || "Sin Nombre"}`,
+            date: safeFormatDate(data.date),
+            guestLimit: data.guestsCount || 150,
+            status: data.status === "borrador" ? "borrador" : "cotizacion",
+            openSeatingMode: false,
+            clientInfo: {
+              name: data.clientName || "",
+              phone: data.phone || "",
+              email: "",
+              rfc: "",
+              address: ""
+            },
+            menu: "",
+            packageName: basePkgName,
+            packagePrice: basePkgPrice,
+            fixedServices: items.filter((it: any) => it.id !== "base-package" && it.id !== "rents").map((it: any) => ({
+              name: it.name,
+              price: Number(it.price) || 0
+            })),
+            discountPercent: 0,
+            discountFixed: 0,
+            enableBalcony: false,
+            paidAmount: 0
+          });
+        }
+      });
+      quotesList = list;
+      updateCombinedList();
+    });
+
+    return () => {
+      unsubscribeEvents();
+      unsubscribeQuotes();
+    };
   }, []);
 
   const handleEditClick = (event: EventData) => {
@@ -380,6 +439,51 @@ export default function EventEditor() {
 
   const promoteEventStatus = async (eventId: string, currentStatus: string) => {
     if (!db) return;
+
+    // Check if it's a quote doc from the quotes collection
+    const quoteDocRef = doc(db, "quotes", eventId);
+    const quoteSnap = await getDoc(quoteDocRef);
+    if (quoteSnap.exists()) {
+      if (currentStatus === "borrador") {
+        await updateDoc(quoteDocRef, { status: "enviada" });
+      } else if (currentStatus === "cotizacion") {
+        const qData = quoteSnap.data();
+        const eventDocRef = doc(db, "events", eventId);
+        const items = qData.items || [];
+        const basePkgItem = items.find((it: any) => it.id === "base-package" || it.id === "rents");
+        const basePkgPrice = basePkgItem ? Number(basePkgItem.price) : 350;
+        const basePkgName = basePkgItem ? basePkgItem.name : "Paquete Básico Imperial";
+
+        await setDoc(eventDocRef, {
+          title: `Evento de ${qData.clientName || "Sin Nombre"}`,
+          date: qData.date || "",
+          guestLimit: qData.guestsCount || 150,
+          status: "pre-reserva",
+          openSeatingMode: false,
+          clientInfo: {
+            name: qData.clientName || "",
+            phone: qData.phone || "",
+            email: "",
+            rfc: "",
+            address: ""
+          },
+          menu: "",
+          packageName: basePkgName,
+          packagePrice: basePkgPrice,
+          fixedServices: items.filter((it: any) => it.id !== "base-package" && it.id !== "rents").map((it: any) => ({
+            name: it.name,
+            price: Number(it.price) || 0
+          })),
+          discountPercent: 0,
+          discountFixed: 0,
+          enableBalcony: false,
+          paidAmount: 0
+        });
+        await updateDoc(quoteDocRef, { status: "aprobada" });
+      }
+      return;
+    }
+
     const nextStatusMap: { [key: string]: "cotizacion" | "pre-reserva" | "contrato" } = {
       "borrador": "cotizacion",
       "cotizacion": "pre-reserva",
