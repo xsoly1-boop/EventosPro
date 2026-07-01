@@ -14,7 +14,7 @@ export default function ThemeOne({ activeForm, setActiveForm, authRole, hostCode
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-10 relative overflow-hidden"
       style={{ background: "radial-gradient(ellipse at 50% 0%, #1a1408 0%, #050505 60%)" }}>
       {/* Background base */}
-      <div className="absolute inset-0 bg-cover bg-center opacity-85" style={{ backgroundImage: "url('/login-bg.jpg')" }} />
+      <div className="absolute inset-0 bg-cover bg-center opacity-90" style={{ backgroundImage: "url('/login-bg.jpg')" }} />
       <div className="absolute inset-0 bg-black/20" />
 
       {/* Custom Styles for loading borders */}
@@ -74,40 +74,47 @@ export default function ThemeOne({ activeForm, setActiveForm, authRole, hostCode
           const Icon = ICONS[row.id as keyof typeof ICONS];
           return (
             <button key={row.id} onClick={() => handleRowAction(row.action)}
-              className="group relative rounded-2xl overflow-hidden text-left cursor-pointer h-[360px] flex flex-col justify-end p-[2.5px] transition-all duration-300 hover:scale-[1.01] active:scale-[0.99]"
+              className="group relative rounded-[28px] overflow-hidden text-left cursor-pointer h-[440px] flex flex-col justify-end p-[3px] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-2xl"
               style={{
                 opacity: mounted ? 1 : 0,
                 transform: mounted ? "translateY(0)" : "translateY(30px)",
                 transition: `opacity 0.6s ease ${0.1 + i * 0.15}s, transform 0.6s ease ${0.1 + i * 0.15}s, scale 0.2s ease`,
               }}>
-              {/* Animated Loading/Shimmer Border Container */}
-              <div className={`absolute inset-0 rounded-2xl transition-all duration-500 ${row.featured ? 'theme-card-border-featured' : 'theme-card-border'}`} />
+              {/* Shimmer glowing gold border wrapper */}
+              <div className={`absolute inset-0 rounded-[28px] transition-all duration-500 ${row.featured ? 'theme-card-border-featured' : 'theme-card-border'}`} />
 
-              {/* Inner Card Content Shield */}
-              <div className="relative w-full h-full rounded-[14px] overflow-hidden flex flex-col justify-end">
-                {/* Full-bleed background image */}
-                <div className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-                  style={{ backgroundImage: `url('${row.bg}')` }} />
-                {/* Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/20 group-hover:from-black/95 transition-all duration-500" />
+              {/* Card inner body */}
+              <div className="relative w-full h-full rounded-[25px] overflow-hidden bg-black flex flex-col justify-between p-4">
+                {/* Upper Section: Image */}
+                <div className="absolute inset-0 z-0">
+                  <div className="w-full h-full bg-cover bg-center transition-transform duration-750 group-hover:scale-105"
+                    style={{ backgroundImage: `url('${row.bg}')` }} />
+                  {/* Subtle dark overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-black/60 transition-all duration-500 group-hover:via-black/50" />
+                </div>
 
-                {/* Content panel */}
-                <div className="relative z-10 p-6 space-y-3 backdrop-blur-[2px]">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-400 ${row.featured ? "bg-gold/20 border-gold/40 shadow-[0_0_15px_rgba(212,175,55,0.3)]" : "bg-white/10 border-white/20 group-hover:bg-gold/15 group-hover:border-gold/30"}`}>
-                    <Icon className={`h-4 w-4 ${row.featured ? "text-gold" : "text-white group-hover:text-gold"} transition-colors duration-300`} />
+                {/* Empty spacer to push content to bottom half */}
+                <div className="h-[40%]" />
+
+                {/* Floating Glassmorphic Bottom Panel */}
+                <div className="relative z-10 w-full rounded-2xl border border-white/20 bg-black/60 backdrop-blur-xl p-5 text-center flex flex-col items-center justify-between gap-4 shadow-[0_15px_35px_rgba(0,0,0,0.5)]">
+                  {/* Icon & Title */}
+                  <div className="space-y-1.5 flex flex-col items-center">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center border mb-1 transition-all duration-400 ${row.featured ? "bg-gold/20 border-gold/40 shadow-[0_0_15px_rgba(212,175,55,0.3)]" : "bg-white/10 border-white/20 group-hover:bg-gold/15 group-hover:border-gold/30"}`}>
+                      <Icon className={`h-4 w-4 ${row.featured ? "text-gold" : "text-white group-hover:text-gold"} transition-colors duration-300`} />
+                    </div>
+                    <span className="text-[8px] text-gold font-bold tracking-[0.25em] uppercase block">
+                      {row.eyebrow}
+                    </span>
+                    <h3 className="text-sm font-bold text-white tracking-wider uppercase group-hover:text-gold transition-colors duration-300">
+                      {row.title}
+                    </h3>
                   </div>
-                  <div>
-                    <span className="text-[9px] text-gold/60 font-semibold tracking-[0.2em] uppercase block mb-0.5">{row.eyebrow}</span>
-                    <h3 className="text-lg font-semibold text-white group-hover:text-gold transition-colors duration-300">{row.title}</h3>
-                    <p className="text-gray-400 text-xs font-light mt-1 leading-relaxed">{row.desc}</p>
-                  </div>
-                  <div className={`flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-300 ${
-                    row.featured
-                      ? "bg-gold text-obsidian shadow-[0_2px_15px_rgba(212,175,55,0.4)] group-hover:shadow-[0_4px_25px_rgba(212,175,55,0.6)]"
-                      : "border border-white/20 text-white group-hover:border-gold/50 group-hover:bg-gold/10 group-hover:text-gold"
-                  }`}>
+
+                  {/* Action Gold Button */}
+                  <div className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-gold to-amber-500 text-obsidian text-[10px] font-bold uppercase tracking-widest shadow-[0_4px_15px_rgba(212,175,55,0.3)] transition-all group-hover:shadow-[0_4px_25px_rgba(212,175,55,0.6)] flex items-center justify-center gap-2 active:scale-[0.97]">
                     <span>{row.buttonLabel}</span>
-                    <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform duration-200" />
+                    <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </div>
               </div>
