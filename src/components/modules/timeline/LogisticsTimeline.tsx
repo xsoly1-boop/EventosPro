@@ -16,7 +16,9 @@ import {
   Play,
   RotateCcw,
   Sparkles,
-  Trash2
+  Trash2,
+  Pencil,
+  GripVertical
 } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { 
@@ -71,6 +73,8 @@ export default function LogisticsTimeline() {
   const [printPaperSize, setPrintPaperSize] = useState("letter");
   const [printObservations, setPrintObservations] = useState("");
   const [brandingLogo, setBrandingLogo] = useState<string>("");
+  const [editingItem, setEditingItem] = useState<TimelineItem | null>(null);
+  const draggedIdx = React.useRef<number | null>(null);
 
   useEffect(() => {
     if (!db) return;
@@ -364,16 +368,39 @@ export default function LogisticsTimeline() {
     e.preventDefault();
     if (!newTitle.trim() || !newResponsible.trim() || !db) return;
     
-    const id = `t-${Date.now()}`;
+    const id = editingItem ? editingItem.id : `t-${Date.now()}`;
     await setDoc(doc(db, "timeline", id), {
       time: newTime,
       title: newTitle,
       description: newDesc,
       responsible: newResponsible,
-      completed: false,
+      completed: editingItem ? editingItem.completed : false,
       requiredStaff: reqStaff
-    });
+    }, { merge: true });
     
+    setEditingItem(null);
+    setNewTitle("");
+    setNewResponsible("");
+    setNewDesc("");
+    setReqStaff(["Cocina", "Cabina", "Animación", "Valet Parking", "Meseros", "Show", "Fotógrafo"]);
+  };
+
+  const handleEditTimelineItem = (item: TimelineItem) => {
+    setEditingItem(item);
+    setNewTime(item.time || "18:00");
+    setNewTitle(item.title);
+    setNewResponsible(item.responsible);
+    setNewDesc(item.description);
+    setReqStaff(item.requiredStaff || []);
+    
+    const formElement = document.getElementById("milestone-form");
+    if (formElement) {
+      formElement.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItem(null);
     setNewTitle("");
     setNewResponsible("");
     setNewDesc("");
@@ -384,7 +411,53 @@ export default function LogisticsTimeline() {
     if (!db) return;
     if (window.confirm("¿Seguro que deseas eliminar este hito del cronograma?")) {
       await deleteDoc(doc(db, "timeline", id));
+      if (editingItem && editingItem.id === id) {
+        handleCancelEdit();
+      }
     }
+  };
+
+  // Drag and Drop handlers
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    if (isLaunched) {
+      e.preventDefault();
+      return;
+    }
+    draggedIdx.current = index;
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (isLaunched || !db) return;
+    const sourceIndex = draggedIdx.current;
+    if (sourceIndex === null || sourceIndex === targetIndex) return;
+
+    const timeSlots = timeline.map(item => item.time);
+
+    const newList = [...timeline];
+    const [removed] = newList.splice(sourceIndex, 1);
+    newList.splice(targetIndex, 0, removed);
+
+    newList.forEach((item, idx) => {
+      item.time = timeSlots[idx];
+    });
+
+    try {
+      const promises = newList.map((item) => {
+        return setDoc(doc(db, "timeline", item.id), { time: item.time }, { merge: true });
+      });
+      await Promise.all(promises);
+    } catch (err) {
+      console.error("Error saving dragged timeline order:", err);
+      alert("Error al guardar el nuevo orden de los hitos.");
+    }
+
+    draggedIdx.current = null;
   };
 
   const handleSelectedEventChange = async (val: string) => {
@@ -514,9 +587,15 @@ export default function LogisticsTimeline() {
         </div>
 
         {/* Custom Milestone/Task Creation Form */}
-        <form onSubmit={handleAddTimelineItem} className="border-t border-white/5 pt-5 mt-4 space-y-4">
+        <form 
+          id="milestone-form"
+          onSubmit={handleAddTimelineItem} 
+          className={`border-t border-white/5 pt-5 mt-4 space-y-4 rounded-xl p-4 transition-all duration-300 ${
+            editingItem ? "bg-gold/[0.02] border border-gold/20" : ""
+          }`}
+        >
           <div className="flex items-center gap-1.5 text-gold text-xs font-semibold uppercase tracking-wider">
-            <span>+ Personalizar Cronograma (Agregar Tarea / Hito)</span>
+            <span>{editingItem ? "✎ Editar Tarea / Hito del Cronograma" : "+ Personalizar Cronograma (Agregar Tarea / Hito)"}</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -555,13 +634,22 @@ export default function LogisticsTimeline() {
               />
             </div>
 
-            <div className="flex items-end">
+            <div className="flex items-end gap-2">
               <button
                 type="submit"
-                className="w-full py-1.5 bg-gold hover:bg-gold-hover text-obsidian rounded-lg text-xs font-bold uppercase tracking-wider transition-colors"
+                className="flex-grow py-1.5 bg-gold hover:bg-gold-hover text-obsidian rounded-lg text-xs font-bold uppercase tracking-wider transition-colors"
               >
-                Agregar Hito
+                {editingItem ? "Guardar" : "Agregar Hito"}
               </button>
+              {editingItem && (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="py-1.5 px-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg text-xs font-semibold uppercase transition-colors border border-white/10"
+                >
+                  Cancelar
+                </button>
+              )}
             </div>
           </div>
 
@@ -657,7 +745,24 @@ export default function LogisticsTimeline() {
       <div className="relative border-l border-white/5 ml-4 md:ml-6 space-y-6 pt-6 no-print">
         {timeline.map((item, idx) => {
           return (
-            <div key={item.id} className="relative pl-8 md:pl-10 group">
+            <div 
+              key={item.id} 
+              className="relative pl-8 md:pl-10 group"
+              draggable={!isLaunched}
+              onDragStart={(e) => handleDragStart(e, idx)}
+              onDragOver={(e) => handleDragOver(e, idx)}
+              onDrop={(e) => handleDrop(e, idx)}
+            >
+              {/* Drag Handle Grip (only shows if not launched) */}
+              {!isLaunched && (
+                <div 
+                  className="absolute left-[-24px] top-1.5 text-gray-600 hover:text-gold cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity z-20 p-1"
+                  title="Arrastrar para reordenar"
+                >
+                  <GripVertical className="h-4 w-4" />
+                </div>
+              )}
+
               {/* Bullet indicator */}
               <div
                 onClick={() => handleToggleComplete(item.id)}
@@ -706,11 +811,21 @@ export default function LogisticsTimeline() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <div className="flex items-center gap-1 text-[10px] text-gray-500 font-semibold bg-white/5 px-2 py-0.5 rounded uppercase border border-white/5">
                       <User className="h-2.5 w-2.5 text-gold/60" />
                       <span>{item.responsible}</span>
                     </div>
+                    
+                    {/* Edit Button */}
+                    <button
+                      onClick={() => handleEditTimelineItem(item)}
+                      className="text-gold hover:text-gold-hover p-1 hover:bg-white/5 rounded transition-colors"
+                      title="Editar Hito"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+
                     <button
                       onClick={() => handleDeleteTimelineItem(item.id)}
                       className="text-red-400 hover:text-red-300 p-1 hover:bg-white/5 rounded transition-colors"
@@ -897,6 +1012,7 @@ export default function LogisticsTimeline() {
                       src={brandingLogo} 
                       alt="Logo de la plataforma" 
                       className="max-h-16 max-w-[180px] object-contain"
+                      style={{ filter: "brightness(0)" }}
                     />
                   ) : printLogo === "imperial" ? (
                     <h2 className="text-xl font-bold uppercase tracking-widest text-gray-900 font-serif">Grand Salón Imperial</h2>
