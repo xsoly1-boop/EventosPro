@@ -18,7 +18,9 @@ import {
   TrendingUp,
   Tag,
   Share2,
-  Search
+  Search,
+  KeyRound,
+  Send
 } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { 
@@ -775,6 +777,42 @@ export default function EventEditor() {
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold/30"
                   />
                 </div>
+              </div>
+
+              {/* Event Access Code & WhatsApp Share Container */}
+              <div className="mt-3 bg-white/[0.02] border border-white/5 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="text-[10px] text-gray-500 font-medium uppercase block mb-0.5">Código de Acceso del Contrato</span>
+                  {editingEvent ? (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <KeyRound className="h-3.5 w-3.5 text-gold shrink-0" />
+                      <span className="font-mono font-bold text-gold text-xs tracking-wider uppercase select-all">
+                        {editingEvent.id}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-gray-400 font-light mt-1">
+                      Se generará automáticamente al guardar.
+                    </p>
+                  )}
+                </div>
+                {editingEvent && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cleanPhone = clientPhone.replace(/\D/g, "");
+                      const formattedPhone = cleanPhone.length === 10 ? `52${cleanPhone}` : cleanPhone;
+                      const msg = `¡Hola *${clientName}*! Te compartimos el código de acceso y el enlace a tu Portal de Anfitrión en SocialesVIP para gestionar tus invitados y mesas:\n\n🔑 Código: *${editingEvent.id}*\n🌐 Enlace directo: ${window.location.origin}/?share=${editingEvent.id}`;
+                      const url = `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(msg)}`;
+                      window.open(url, "_blank");
+                    }}
+                    disabled={!clientPhone}
+                    className="py-1.5 px-3.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-950 disabled:text-emerald-800 disabled:border-emerald-950/20 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shrink-0"
+                    title={clientPhone ? "Enviar acceso por WhatsApp" : "Ingresa un teléfono primero"}
+                  >
+                    <Send className="h-3 w-3" /> Enviar Código
+                  </button>
+                )}
               </div>
             </div>
           </div>
