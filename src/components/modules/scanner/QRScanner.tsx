@@ -69,6 +69,18 @@ export default function QRScanner() {
   const [searchQuery, setSearchQuery] = useState("");
   const [scanResult, setScanResult] = useState<{ success: boolean; message: string; guestName?: string; tableId?: number | string; seatIndex?: number; menuPreference?: string; vipAffiliation?: string; tickets?: number } | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [loginTheme, setLoginTheme] = useState<string>("1");
+
+  useEffect(() => {
+    if (!db) return;
+    const unsubBranding = onSnapshot(doc(db, "settings", "branding"), (snap) => {
+      if (snap.exists()) {
+        const theme = snap.data()?.loginTheme;
+        if (theme) setLoginTheme(theme);
+      }
+    });
+    return () => unsubBranding();
+  }, []);
 
   const [events, setEvents] = useState<{ id: string; title: string }[]>([]);
   const [openSeatingMode, setOpenSeatingMode] = useState<boolean | "hibrido">(false);
@@ -408,7 +420,15 @@ export default function QRScanner() {
             </div>
           </div>
 
-          {/* Deleted inline result container */}
+          {scanResult && loginTheme !== "1" && (
+            <div className={`p-4 rounded-xl border flex items-start gap-3 justify-center text-left max-w-md mx-auto animate-fade-in ${scanResult.success ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-200" : "bg-red-950/40 border-red-500/30 text-red-200"}`}>
+              {scanResult.success ? <CheckCircle className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" /> : <AlertTriangle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />}
+              <div>
+                <p className="text-xs font-semibold">{scanResult.success ? "Operación Registrada" : "Aviso"}</p>
+                <p className="text-[11px] font-light mt-0.5 leading-relaxed">{scanResult.message}</p>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -458,7 +478,15 @@ export default function QRScanner() {
               </div>
             </div>
 
-            {/* Deleted inline result container */}
+            {scanResult && loginTheme !== "1" && (
+              <div className={`p-4 rounded-xl border flex items-start gap-3 animate-fade-in ${scanResult.success ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-200" : "bg-red-950/40 border-red-500/30 text-red-200"}`}>
+                {scanResult.success ? <CheckCircle className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" /> : <AlertTriangle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />}
+                <div>
+                  <p className="text-xs font-semibold">{scanResult.success ? "Acceso Autorizado" : "Acceso Denegado"}</p>
+                  <p className="text-[11px] font-light mt-0.5 leading-relaxed">{scanResult.message}</p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Column: Guest search & Manual Check-in */}
@@ -532,7 +560,7 @@ export default function QRScanner() {
       )}
 
       {/* Success Access Validation Modal */}
-      {scanResult && scanResult.success && (
+      {scanResult && scanResult.success && loginTheme === "1" && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50 animate-fade-in backdrop-blur-md">
           <div className="glass-dark rounded-2xl border border-gold/20 max-w-sm w-full p-8 text-center space-y-6 animate-scale-up relative">
             <div className="text-center space-y-2">
@@ -605,7 +633,7 @@ export default function QRScanner() {
       )}
 
       {/* Error Access Validation Modal */}
-      {scanResult && !scanResult.success && (
+      {scanResult && !scanResult.success && loginTheme === "1" && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50 animate-fade-in backdrop-blur-md">
           <div className="glass-dark rounded-2xl border border-red-500/20 max-w-sm w-full p-8 text-center space-y-6 animate-scale-up relative">
             <div className="text-center space-y-2">

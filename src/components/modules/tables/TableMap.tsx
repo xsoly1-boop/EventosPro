@@ -26,6 +26,19 @@ interface TableMapProps {
 
 export default function TableMap({ onBack }: TableMapProps) {
   const { user } = useAuth();
+  const [loginTheme, setLoginTheme] = useState<string>("1");
+
+  useEffect(() => {
+    if (!db) return;
+    const unsubBranding = onSnapshot(doc(db, "settings", "branding"), (snap) => {
+      if (snap.exists()) {
+        const theme = snap.data()?.loginTheme;
+        if (theme) setLoginTheme(theme);
+      }
+    });
+    return () => unsubBranding();
+  }, []);
+
   const [selectedEventId, setSelectedEventId] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("svip_client_event_id");
@@ -667,7 +680,9 @@ export default function TableMap({ onBack }: TableMapProps) {
                               r={chairRadius}
                               className={`transition-all duration-300 ${
                                 assigned
-                                  ? "fill-gold stroke-gold-hover stroke-[2] shadow-[0_0_8px_rgba(212,175,55,0.4)]"
+                                  ? loginTheme === "1"
+                                    ? "fill-gold stroke-gold-hover stroke-[2] shadow-[0_0_8px_rgba(212,175,55,0.4)]"
+                                    : "fill-gold stroke-gold-hover stroke-[2]"
                                   : "fill-obsidian stroke-gray-700 hover:stroke-gold/70 stroke-[1]"
                               }`}
                             />
@@ -695,21 +710,29 @@ export default function TableMap({ onBack }: TableMapProps) {
                         cx={table.cx}
                         cy={table.cy}
                         r={tableRadius}
-                        className={`transition-all duration-500 ${
-                          assignedChairsCount === chairsCount
-                            ? "stroke-gold/80 fill-[url(#table-grad-full)]"
-                            : assignedChairsCount > 0
-                            ? "stroke-emerald-500/70 fill-[url(#table-grad-partial)]"
-                            : "stroke-white/10 fill-[url(#table-grad-empty)] group-hover/table:stroke-gold/40"
-                        } stroke-[2.5]`}
-                        style={{
-                          filter:
-                            assignedChairsCount === chairsCount
-                              ? "url(#shadow-3d) url(#glow-gold)"
-                              : assignedChairsCount > 0
-                              ? "url(#shadow-3d) url(#glow-emerald)"
-                              : "url(#shadow-3d)",
-                        }}
+                        className={
+                          loginTheme === "1"
+                            ? `transition-all duration-500 ${
+                                assignedChairsCount === chairsCount
+                                  ? "stroke-gold/80 fill-[url(#table-grad-full)]"
+                                  : assignedChairsCount > 0
+                                  ? "stroke-emerald-500/70 fill-[url(#table-grad-partial)]"
+                                  : "stroke-white/10 fill-[url(#table-grad-empty)] group-hover/table:stroke-gold/40"
+                              } stroke-[2.5]`
+                            : "fill-dark-gray stroke-gold/40 stroke-[2] shadow-lg group-hover/table:stroke-gold transition-colors duration-300"
+                        }
+                        style={
+                          loginTheme === "1"
+                            ? {
+                                filter:
+                                  assignedChairsCount === chairsCount
+                                    ? "url(#shadow-3d) url(#glow-gold)"
+                                    : assignedChairsCount > 0
+                                    ? "url(#shadow-3d) url(#glow-emerald)"
+                                    : "url(#shadow-3d)",
+                              }
+                            : undefined
+                        }
                       />
 
                       <text
@@ -841,7 +864,9 @@ export default function TableMap({ onBack }: TableMapProps) {
                             r={vipChairRadius}
                             className={`transition-all duration-300 ${
                               assigned
-                                ? "fill-gold stroke-gold-hover stroke-[2] shadow-[0_0_10px_#D4AF37]"
+                                ? loginTheme === "1"
+                                  ? "fill-gold stroke-gold-hover stroke-[2] shadow-[0_0_10px_#D4AF37]"
+                                  : "fill-gold stroke-gold-hover stroke-[2]"
                                 : "fill-obsidian stroke-gold/30 hover:stroke-gold stroke-[1]"
                             }`}
                           />
@@ -871,21 +896,29 @@ export default function TableMap({ onBack }: TableMapProps) {
                       width="300"
                       height="100"
                       rx="10"
-                      className={`transition-all duration-500 ${
-                        honorGuestsCount === honorCapacity
-                          ? "stroke-gold/80 fill-[url(#table-grad-full)]"
-                          : honorGuestsCount > 0
-                          ? "stroke-emerald-500/70 fill-[url(#table-grad-partial)]"
-                          : "stroke-white/10 fill-[url(#table-grad-empty)] group-hover/honor:stroke-gold/40"
-                      } stroke-[2.5]`}
-                      style={{
-                        filter:
-                          honorGuestsCount === honorCapacity
-                            ? "url(#shadow-3d) url(#glow-gold)"
-                            : honorGuestsCount > 0
-                            ? "url(#shadow-3d) url(#glow-emerald)"
-                            : "url(#shadow-3d)",
-                      }}
+                      className={
+                        loginTheme === "1"
+                          ? `transition-all duration-500 ${
+                              honorGuestsCount === honorCapacity
+                                ? "stroke-gold/80 fill-[url(#table-grad-full)]"
+                                : honorGuestsCount > 0
+                                ? "stroke-emerald-500/70 fill-[url(#table-grad-partial)]"
+                                : "stroke-white/10 fill-[url(#table-grad-empty)] group-hover/honor:stroke-gold/40"
+                            } stroke-[2.5]`
+                          : "fill-dark-gray stroke-gold stroke-[3] shadow-[0_0_20px_rgba(212,175,55,0.15)] group-hover/honor:stroke-gold-hover transition-all duration-300"
+                      }
+                      style={
+                        loginTheme === "1"
+                          ? {
+                              filter:
+                                honorGuestsCount === honorCapacity
+                                  ? "url(#shadow-3d) url(#glow-gold)"
+                                  : honorGuestsCount > 0
+                                  ? "url(#shadow-3d) url(#glow-emerald)"
+                                  : "url(#shadow-3d)",
+                            }
+                          : undefined
+                      }
                     />
                     <text
                       x="600"
@@ -951,7 +984,9 @@ export default function TableMap({ onBack }: TableMapProps) {
                               r={vipChairRadius}
                               className={`transition-all duration-300 ${
                                 assigned
-                                  ? "fill-gold stroke-gold-hover stroke-[2] shadow-[0_0_10px_#D4AF37]"
+                                  ? loginTheme === "1"
+                                    ? "fill-gold stroke-gold-hover stroke-[2] shadow-[0_0_10px_#D4AF37]"
+                                    : "fill-gold stroke-gold-hover stroke-[2]"
                                   : "fill-obsidian stroke-gold/30 hover:stroke-gold stroke-[1]"
                               }`}
                             />
@@ -981,21 +1016,29 @@ export default function TableMap({ onBack }: TableMapProps) {
                         width="100"
                         height="300"
                         rx="10"
-                        className={`transition-all duration-500 ${
-                          leftGuestsCount === topSeatsCount
-                            ? "stroke-gold/80 fill-[url(#table-grad-full)]"
-                            : leftGuestsCount > 0
-                            ? "stroke-emerald-500/70 fill-[url(#table-grad-partial)]"
-                            : "stroke-white/10 fill-[url(#table-grad-empty)] group-hover/table:stroke-gold/40"
-                        } stroke-[2.5]`}
-                        style={{
-                          filter:
-                            leftGuestsCount === topSeatsCount
-                              ? "url(#shadow-3d) url(#glow-gold)"
-                              : leftGuestsCount > 0
-                              ? "url(#shadow-3d) url(#glow-emerald)"
-                              : "url(#shadow-3d)",
-                        }}
+                        className={
+                          loginTheme === "1"
+                            ? `transition-all duration-500 ${
+                                leftGuestsCount === topSeatsCount
+                                  ? "stroke-gold/80 fill-[url(#table-grad-full)]"
+                                  : leftGuestsCount > 0
+                                  ? "stroke-emerald-500/70 fill-[url(#table-grad-partial)]"
+                                  : "stroke-white/10 fill-[url(#table-grad-empty)] group-hover/table:stroke-gold/40"
+                              } stroke-[2.5]`
+                            : "fill-dark-gray stroke-gold stroke-[3] shadow-[0_0_15px_rgba(212,175,55,0.15)] hover:stroke-gold-hover transition-all duration-300"
+                        }
+                        style={
+                          loginTheme === "1"
+                            ? {
+                                filter:
+                                  leftGuestsCount === topSeatsCount
+                                    ? "url(#shadow-3d) url(#glow-gold)"
+                                    : leftGuestsCount > 0
+                                    ? "url(#shadow-3d) url(#glow-emerald)"
+                                    : "url(#shadow-3d)",
+                              }
+                            : undefined
+                        }
                       />
                       <text
                         x="450"
@@ -1036,7 +1079,9 @@ export default function TableMap({ onBack }: TableMapProps) {
                               r={vipChairRadius}
                               className={`transition-all duration-300 ${
                                 assigned
-                                  ? "fill-gold stroke-gold-hover stroke-[2] shadow-[0_0_10px_#D4AF37]"
+                                  ? loginTheme === "1"
+                                    ? "fill-gold stroke-gold-hover stroke-[2] shadow-[0_0_10px_#D4AF37]"
+                                    : "fill-gold stroke-gold-hover stroke-[2]"
                                   : "fill-obsidian stroke-gold/30 hover:stroke-gold stroke-[1]"
                               }`}
                             />
@@ -1066,21 +1111,29 @@ export default function TableMap({ onBack }: TableMapProps) {
                         width="100"
                         height="300"
                         rx="10"
-                        className={`transition-all duration-500 ${
-                          rightGuestsCount === bottomSeatsCount
-                            ? "stroke-gold/80 fill-[url(#table-grad-full)]"
-                            : rightGuestsCount > 0
-                            ? "stroke-emerald-500/70 fill-[url(#table-grad-partial)]"
-                            : "stroke-white/10 fill-[url(#table-grad-empty)] group-hover/table:stroke-gold/40"
-                        } stroke-[2.5]`}
-                        style={{
-                          filter:
-                            rightGuestsCount === bottomSeatsCount
-                              ? "url(#shadow-3d) url(#glow-gold)"
-                              : rightGuestsCount > 0
-                              ? "url(#shadow-3d) url(#glow-emerald)"
-                              : "url(#shadow-3d)",
-                        }}
+                        className={
+                          loginTheme === "1"
+                            ? `transition-all duration-500 ${
+                                rightGuestsCount === bottomSeatsCount
+                                  ? "stroke-gold/80 fill-[url(#table-grad-full)]"
+                                  : rightGuestsCount > 0
+                                  ? "stroke-emerald-500/70 fill-[url(#table-grad-partial)]"
+                                  : "stroke-white/10 fill-[url(#table-grad-empty)] group-hover/table:stroke-gold/40"
+                              } stroke-[2.5]`
+                            : "fill-dark-gray stroke-gold stroke-[3] shadow-[0_0_15px_rgba(212,175,55,0.15)] hover:stroke-gold-hover transition-all duration-300"
+                        }
+                        style={
+                          loginTheme === "1"
+                            ? {
+                                filter:
+                                  rightGuestsCount === bottomSeatsCount
+                                    ? "url(#shadow-3d) url(#glow-gold)"
+                                    : rightGuestsCount > 0
+                                    ? "url(#shadow-3d) url(#glow-emerald)"
+                                    : "url(#shadow-3d)",
+                              }
+                            : undefined
+                        }
                       />
                       <text
                         x="750"
@@ -1178,7 +1231,9 @@ export default function TableMap({ onBack }: TableMapProps) {
                           r={chairRadius}
                           className={`transition-all duration-300 ${
                             assigned
-                              ? "fill-gold stroke-gold-hover stroke-[2] shadow-[0_0_8px_rgba(212,175,55,0.4)]"
+                              ? loginTheme === "1"
+                                ? "fill-gold stroke-gold-hover stroke-[2] shadow-[0_0_8px_rgba(212,175,55,0.4)]"
+                                : "fill-gold stroke-gold-hover stroke-[2]"
                               : "fill-obsidian stroke-gray-700 hover:stroke-gold/70 stroke-[1]"
                           }`}
                         />
@@ -1208,21 +1263,29 @@ export default function TableMap({ onBack }: TableMapProps) {
                     cx={table.cx}
                     cy={table.cy}
                     r={tableRadius}
-                    className={`transition-all duration-500 ${
-                      assignedChairsCount === chairsCount
-                        ? "stroke-gold/80 fill-[url(#table-grad-full)]"
-                        : assignedChairsCount > 0
-                        ? "stroke-emerald-500/70 fill-[url(#table-grad-partial)]"
-                        : "stroke-white/10 fill-[url(#table-grad-empty)] group-hover/table:stroke-gold/40"
-                    } stroke-[2.5]`}
-                    style={{
-                      filter:
-                        assignedChairsCount === chairsCount
-                          ? "url(#shadow-3d) url(#glow-gold)"
-                          : assignedChairsCount > 0
-                          ? "url(#shadow-3d) url(#glow-emerald)"
-                          : "url(#shadow-3d)",
-                    }}
+                    className={
+                      loginTheme === "1"
+                        ? `transition-all duration-500 ${
+                            assignedChairsCount === chairsCount
+                              ? "stroke-gold/80 fill-[url(#table-grad-full)]"
+                              : assignedChairsCount > 0
+                              ? "stroke-emerald-500/70 fill-[url(#table-grad-partial)]"
+                              : "stroke-white/10 fill-[url(#table-grad-empty)] group-hover/table:stroke-gold/40"
+                          } stroke-[2.5]`
+                        : "fill-dark-gray stroke-gold/40 stroke-[2] shadow-lg group-hover/table:stroke-gold transition-colors duration-300"
+                    }
+                    style={
+                      loginTheme === "1"
+                        ? {
+                            filter:
+                              assignedChairsCount === chairsCount
+                                ? "url(#shadow-3d) url(#glow-gold)"
+                                : assignedChairsCount > 0
+                                ? "url(#shadow-3d) url(#glow-emerald)"
+                                : "url(#shadow-3d)",
+                          }
+                        : undefined
+                    }
                   />
 
                   {/* Table Label */}
