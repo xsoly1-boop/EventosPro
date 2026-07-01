@@ -7,7 +7,8 @@ import { ThemeProps, ACCESS_ROWS } from "./types";
 
 const ICONS = { admin: Shield, client: User, staff: QrCode };
 
-function LeftPanel() {
+function LeftPanel({ brandName }: { brandName?: string }) {
+  const displayBrand = brandName || "SocialesVIP";
   return (
     <div className="relative hidden lg:flex lg:w-1/2 flex-col justify-between overflow-hidden">
       <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/hero-panel.jpg')" }} />
@@ -20,7 +21,7 @@ function LeftPanel() {
           <div className="w-9 h-9 rounded-lg bg-gold/15 border border-gold/25 flex items-center justify-center shadow-[0_0_15px_rgba(212,175,55,0.25)]">
             <Sparkles className="h-4 w-4 text-gold" />
           </div>
-          <span className="text-xs font-semibold tracking-[0.3em] text-gold/80 uppercase">SocialesVIP</span>
+          <span className="text-xs font-semibold tracking-[0.3em] text-gold/80 uppercase">{displayBrand}</span>
         </div>
         <div className="space-y-5">
           <div className="flex items-center gap-3">
@@ -47,7 +48,7 @@ function LeftPanel() {
         </div>
         <div className="flex items-center gap-2 text-[10px] text-gray-600 tracking-widest uppercase">
           <Star className="h-2.5 w-2.5 text-gold/40 fill-gold/20" />
-          <span>© 2026 SocialesVIP · Todos los derechos reservados</span>
+          <span>© 2026 {displayBrand} · Todos los derechos reservados</span>
         </div>
       </div>
     </div>
@@ -73,12 +74,13 @@ interface FormShellProps {
   icon: React.ElementType;
   children: React.ReactNode;
   setActiveForm: (f: "menu" | "host-code" | "auth-fields") => void;
+  brandName?: string;
 }
 
-function FormShell({ title, eyebrow, icon: Icon, children, setActiveForm }: FormShellProps) {
+function FormShell({ title, eyebrow, icon: Icon, children, setActiveForm, brandName }: FormShellProps) {
   return (
     <div className="flex min-h-screen bg-obsidian">
-      <LeftPanel />
+      <LeftPanel brandName={brandName} />
       <RightPanel>
         <button onClick={() => setActiveForm("menu")} className="flex items-center gap-1.5 text-[10px] text-gray-500 hover:text-gold uppercase tracking-widest font-semibold mb-10 transition-colors">
           <ChevronRight className="h-3 w-3 rotate-180" /> Volver al menú
@@ -93,16 +95,17 @@ function FormShell({ title, eyebrow, icon: Icon, children, setActiveForm }: Form
   );
 }
 
-export default function ThemeTwo({ activeForm, setActiveForm, authRole, hostCode, setHostCode, email, setEmail, password, setPassword, loading, error, setError, mounted, handleHostSubmit, handleAuthSubmit, handleRowAction, loginDemo }: ThemeProps) {
+export default function ThemeTwo({ activeForm, setActiveForm, authRole, hostCode, setHostCode, email, setEmail, password, setPassword, loading, error, setError, mounted, handleHostSubmit, handleAuthSubmit, handleRowAction, loginDemo, brandName }: ThemeProps) {
+  const displayBrand = brandName || "SocialesVIP";
 
   if (activeForm === "menu") return (
     <div className="flex min-h-screen bg-obsidian">
-      <LeftPanel />
+      <LeftPanel brandName={brandName} />
       <RightPanel>
         <div className="mb-10" style={{ opacity: mounted ? 1 : 0, transform: mounted ? "translateY(0)" : "translateY(16px)", transition: "all 0.6s ease" }}>
           <div className="flex items-center gap-2 mb-8 lg:hidden">
             <div className="w-8 h-8 rounded-lg bg-gold/15 border border-gold/25 flex items-center justify-center"><Sparkles className="h-4 w-4 text-gold" /></div>
-            <span className="text-xs font-semibold tracking-[0.3em] text-gold/80 uppercase">SocialesVIP</span>
+            <span className="text-xs font-semibold tracking-[0.3em] text-gold/80 uppercase">{displayBrand}</span>
           </div>
           <p className="text-[10px] text-gold/60 tracking-[0.25em] uppercase font-semibold mb-2">Bienvenido</p>
           <h2 className="text-2xl font-semibold text-white">Selecciona tu acceso</h2>
@@ -151,7 +154,7 @@ export default function ThemeTwo({ activeForm, setActiveForm, authRole, hostCode
   );
 
   if (activeForm === "host-code") return (
-    <FormShell title="Ingresar Código" eyebrow="Portal Anfitrión" icon={KeyRound} setActiveForm={setActiveForm}>
+    <FormShell title="Ingresar Código" eyebrow="Portal Anfitrión" icon={KeyRound} setActiveForm={setActiveForm} brandName={brandName}>
       <form onSubmit={handleHostSubmit} className="space-y-4">
         <input type="text" value={hostCode} onChange={(e) => { setHostCode(e.target.value.toUpperCase()); setError(""); }} placeholder="SVIP-XXXX" autoFocus
           className="w-full px-5 py-4 rounded-xl bg-white/[0.04] border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-gold/40 text-center tracking-[0.3em] uppercase font-semibold text-sm transition-all" />
@@ -164,7 +167,7 @@ export default function ThemeTwo({ activeForm, setActiveForm, authRole, hostCode
   );
 
   return (
-    <FormShell title="Iniciar Sesión" eyebrow="Acceso Administrativo" icon={Shield} setActiveForm={setActiveForm}>
+    <FormShell title="Iniciar Sesión" eyebrow="Acceso Administrativo" icon={Shield} setActiveForm={setActiveForm} brandName={brandName}>
       <form onSubmit={handleAuthSubmit} className="space-y-3">
         {error && <div className="flex items-start gap-2 text-red-400 text-xs bg-red-950/30 border border-red-500/15 rounded-xl px-4 py-3"><AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" /><span>{error}</span></div>}
         <div className="relative"><Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" /><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="correo@ejemplo.com" autoFocus className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-gold/40 text-xs transition-all" /></div>

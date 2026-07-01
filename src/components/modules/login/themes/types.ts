@@ -20,6 +20,8 @@ export interface ThemeProps {
   handleRowAction: (action: "admin" | "host-code" | "scanner") => void;
   loginDemo: (role: UserRole) => void;
   logoUrl?: string;
+  portalTitle?: string;
+  brandName?: string;
 }
 
 export const ACCESS_ROWS = [

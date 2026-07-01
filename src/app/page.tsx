@@ -40,6 +40,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<TabType>("overview");
   const [loginTheme, setLoginTheme] = useState<string>("1");
   const [logoUrl, setLogoUrl] = useState<string>("");
+  const [brandName, setBrandName] = useState<string>("");
 
   useEffect(() => {
     if (!db) return;
@@ -48,6 +49,7 @@ export default function Home() {
         const data = snap.data();
         if (data?.loginTheme) setLoginTheme(data.loginTheme);
         if (data?.logoUrl !== undefined) setLogoUrl(data.logoUrl);
+        if (data?.brandName !== undefined) setBrandName(data.brandName);
       }
     });
     return () => unsubBranding();
@@ -215,7 +217,7 @@ export default function Home() {
               <>
                 <Sparkles className="text-gold h-5 w-5 animate-pulse" />
                 <span className="text-sm font-semibold tracking-[0.2em] text-gold uppercase">
-                  SocialesVIP
+                  {brandName || "SocialesVIP"}
                 </span>
               </>
             )}

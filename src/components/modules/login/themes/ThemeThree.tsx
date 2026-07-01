@@ -67,7 +67,8 @@ const NeonForm = ({ children, title, eyebrow, icon: Icon, setActiveForm }: NeonF
   </div>
 );
 
-export default function ThemeThree({ activeForm, setActiveForm, authRole, hostCode, setHostCode, email, setEmail, password, setPassword, loading, error, setError, mounted, handleHostSubmit, handleAuthSubmit, handleRowAction, loginDemo }: ThemeProps) {
+export default function ThemeThree({ activeForm, setActiveForm, authRole, hostCode, setHostCode, email, setEmail, password, setPassword, loading, error, setError, mounted, handleHostSubmit, handleAuthSubmit, handleRowAction, loginDemo, brandName }: ThemeProps) {
+  const displayBrand = brandName || "SocialesVIP";
 
   /* ── MENU ─────────────────────────────────────────── */
   if (activeForm === "menu") return (
@@ -85,7 +86,7 @@ export default function ThemeThree({ activeForm, setActiveForm, authRole, hostCo
             </div>
             <div className="absolute inset-0 rounded-xl animate-ping" style={{ border: "1px solid rgba(212,175,55,0.2)", opacity: 0.4 }} />
           </div>
-          <span className="text-xs font-semibold tracking-[0.35em] text-gold/80 uppercase">SocialesVIP</span>
+          <span className="text-xs font-semibold tracking-[0.35em] text-gold/80 uppercase">{displayBrand}</span>
         </div>
         <h1 className="text-3xl md:text-4xl font-light text-white mb-2">
           Acceso al{" "}
@@ -165,7 +166,7 @@ export default function ThemeThree({ activeForm, setActiveForm, authRole, hostCo
       </div>
 
       <div className="relative z-10 mt-12 text-[10px] text-gray-700 tracking-[0.2em] uppercase">
-        © 2026 SocialesVIP · Plataforma segura SSL
+        © 2026 {displayBrand} · Plataforma segura SSL
       </div>
     </div>
   );

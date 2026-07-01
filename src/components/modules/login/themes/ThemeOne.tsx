@@ -7,7 +7,9 @@ import { ThemeProps, ACCESS_ROWS } from "./types";
 
 const ICONS = { admin: Shield, client: User, staff: QrCode };
 
-export default function ThemeOne({ activeForm, setActiveForm, authRole, hostCode, setHostCode, email, setEmail, password, setPassword, loading, error, setError, mounted, handleHostSubmit, handleAuthSubmit, handleRowAction, loginDemo, logoUrl }: ThemeProps) {
+export default function ThemeOne({ activeForm, setActiveForm, authRole, hostCode, setHostCode, email, setEmail, password, setPassword, loading, error, setError, mounted, handleHostSubmit, handleAuthSubmit, handleRowAction, loginDemo, logoUrl, portalTitle, brandName }: ThemeProps) {
+  const displayBrand = brandName || "SocialesVIP";
+  const displayTitle = portalTitle || "Gestión Premium de Eventos Sociales";
 
   /* ── MENU ─────────────────────────────────────────── */
   if (activeForm === "menu") return (
@@ -57,15 +59,23 @@ export default function ThemeOne({ activeForm, setActiveForm, authRole, hostCode
               <div className="w-9 h-9 rounded-lg bg-gold/15 border border-gold/25 flex items-center justify-center shadow-[0_0_15px_rgba(212,175,55,0.25)]">
                 <Sparkles className="h-4 w-4 text-gold" />
               </div>
-              <span className="text-xs font-semibold tracking-[0.3em] text-gold/80 uppercase">SocialesVIP</span>
+              <span className="text-xs font-semibold tracking-[0.3em] text-gold/80 uppercase">{displayBrand}</span>
             </>
           )}
         </div>
         <h1 className="text-3xl md:text-4xl font-light text-white mb-3">
-          Gestión Premium de{" "}
-          <span className="font-semibold" style={{ background: "linear-gradient(90deg,#D4AF37,#FDE68A,#D4AF37)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            Eventos Sociales
-          </span>
+          {displayTitle.includes(" ") ? (
+            <>
+              {displayTitle.substring(0, displayTitle.lastIndexOf(" "))}{" "}
+              <span className="font-semibold" style={{ background: "linear-gradient(90deg,#D4AF37,#FDE68A,#D4AF37)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                {displayTitle.substring(displayTitle.lastIndexOf(" ") + 1)}
+              </span>
+            </>
+          ) : (
+            <span className="font-semibold" style={{ background: "linear-gradient(90deg,#D4AF37,#FDE68A,#D4AF37)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              {displayTitle}
+            </span>
+          )}
         </h1>
         <div className="flex items-center justify-center gap-3 mt-3">
           <div className="h-px w-10 bg-gold/40" />
@@ -129,7 +139,7 @@ export default function ThemeOne({ activeForm, setActiveForm, authRole, hostCode
         })}
       </div>
       <div className="relative z-10 mt-8 text-[10px] text-gray-600 tracking-[0.2em] uppercase">
-        © 2026 SocialesVIP · Todos los derechos reservados
+        © 2026 {displayBrand} · Todos los derechos reservados
       </div>
     </div>
   );
