@@ -66,10 +66,13 @@ export default function Home() {
   const [shareEventId, setShareEventId] = useState<string | null>(null);
 
   const [dbPermissions, setDbPermissions] = useState<any[]>([]);
+  const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
+  const [pendingPayments, setPendingPayments] = useState<any[]>([]);
+  const [dashboardReceiptPreview, setDashboardReceiptPreview] = useState<string | null>(null);
 
   useEffect(() => {
     if (!db) return;
-    const unsub = onSnapshot(doc(db, "settings", "roles"), (docSnap) => {
+    const unsubRoles = onSnapshot(doc(db, "settings", "roles"), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data.permissions) {
@@ -77,7 +80,23 @@ export default function Home() {
         }
       }
     });
-    return () => unsub();
+    return () => unsubRoles();
+  }, []);
+
+  useEffect(() => {
+    if (!db) return;
+    const unsubPayments = onSnapshot(collection(db, "payment_reports"), (snap) => {
+      const pendingList: any[] = [];
+      snap.forEach(docSnap => {
+        const d = docSnap.data();
+        if (d.status === "pending") {
+          pendingList.push({ id: docSnap.id, ...d });
+        }
+      });
+      setPendingPayments(pendingList);
+      setPendingPaymentsCount(pendingList.length);
+    });
+    return () => unsubPayments();
   }, []);
 
   React.useEffect(() => {
@@ -162,7 +181,16 @@ export default function Home() {
   const renderActiveContent = () => {
     switch (activeTab) {
       case "overview":
-        return <OverviewTab user={user} setActiveTab={setActiveTab} allowedTabs={allowedTabs} loginTheme={loginTheme} />;
+        return (
+          <OverviewTab 
+            user={user} 
+            setActiveTab={setActiveTab} 
+            allowedTabs={allowedTabs} 
+            loginTheme={loginTheme} 
+            pendingPayments={pendingPayments}
+            setDashboardReceiptPreview={setDashboardReceiptPreview}
+          />
+        );
       case "tables":
         // TableMap has its own sidebar, so we render it full screen or integrated.
         // Let's render it full screen with a back button returning to the main dashboard.
@@ -276,6 +304,11 @@ export default function Home() {
                 >
                   <Icon className="h-4 w-4 shrink-0" />
                   <span>{item.label}</span>
+                  {item.id === "finance" && pendingPaymentsCount > 0 && (
+                    <span className="ml-auto w-5 h-5 rounded-full bg-red-500 text-white font-mono text-[9px] font-bold flex items-center justify-center animate-pulse">
+                      {pendingPaymentsCount}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -298,6 +331,31 @@ export default function Home() {
       <main className="flex-grow p-4 md:p-8 overflow-y-auto max-h-screen z-10 relative">
         {renderActiveContent()}
       </main>
+
+      {/* Selected Receipt Preview Modal */}
+      {dashboardReceiptPreview && (
+        <div className="fixed inset-0 bg-obsidian/95 flex items-center justify-center p-4 z-[60] animate-fade-in backdrop-blur-md">
+          <div className="relative max-w-3xl w-full max-h-[85vh] flex flex-col items-center justify-center animate-scale-up">
+            <button
+              onClick={() => setDashboardReceiptPreview(null)}
+              className="absolute -top-12 right-0 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all shadow-lg active:scale-95"
+              title="Cerrar vista"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div className="bg-obsidian border border-white/15 rounded-2xl overflow-hidden shadow-2xl p-4 flex items-center justify-center max-h-[80vh]">
+              <img
+                src={dashboardReceiptPreview}
+                alt="Comprobante de Pago"
+                className="max-w-full max-h-[70vh] object-contain rounded-lg"
+              />
+            </div>
+            <p className="text-[10px] text-gray-500 font-light mt-3 tracking-wider uppercase font-mono">
+              Comprobante de transferencia / depósito
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -308,9 +366,18 @@ interface OverviewProps {
   setActiveTab: (tab: TabType) => void;
   allowedTabs: any[];
   loginTheme: string;
+  pendingPayments?: any[];
+  setDashboardReceiptPreview?: (url: string | null) => void;
 }
 
-function OverviewTab({ user, setActiveTab, allowedTabs, loginTheme }: OverviewProps) {
+function OverviewTab({ 
+  user, 
+  setActiveTab, 
+  allowedTabs, 
+  loginTheme, 
+  pendingPayments = [], 
+  setDashboardReceiptPreview 
+}: OverviewProps) {
   const isClient = user.role === "client";
   const clientEventId = typeof window !== "undefined" ? localStorage.getItem("svip_client_event_id") || "event-123" : "event-123";
 
@@ -801,6 +868,53 @@ function OverviewTab({ user, setActiveTab, allowedTabs, loginTheme }: OverviewPr
           Aquí tienes los accesos directos a los módulos asignados a tu cuenta de usuario.
         </p>
       </div>
+
+      {/* Notifications / Pending Payment Reports Alert */}
+      {!isClient && pendingPayments.length > 0 && (
+        <div className="glass-dark border border-gold/30 rounded-2xl p-5 space-y-4 animate-scale-up shadow-[0_0_20px_rgba(212,175,55,0.05)]">
+          <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+            <h3 className="text-xs font-semibold text-gold uppercase tracking-wider">
+              Notificaciones de Pago Pendientes ({pendingPayments.length})
+            </h3>
+          </div>
+          <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1">
+            {pendingPayments.map((rep) => (
+              <div key={rep.id} className="glass p-3 rounded-xl border border-white/5 flex flex-col sm:flex-row justify-between sm:items-center gap-3 text-xs">
+                <div>
+                  <div className="text-white font-medium">
+                    {rep.clientName} ha reportado un pago de <span className="text-emerald-400 font-bold font-mono">${rep.amount.toLocaleString()}</span>
+                  </div>
+                  <div className="text-[10px] text-gray-500 mt-0.5">
+                    Evento: {rep.eventTitle} | Ref: {rep.reference} | Fecha: {rep.date}
+                  </div>
+                </div>
+                <div className="flex gap-2 self-end sm:self-auto shrink-0">
+                  {rep.receiptImage && setDashboardReceiptPreview && (
+                    <button
+                      type="button"
+                      onClick={() => setDashboardReceiptPreview(rep.receiptImage)}
+                      className="py-1 px-3 bg-gold/10 hover:bg-gold/20 border border-gold/20 text-gold rounded-lg text-[10px] uppercase font-bold transition-all"
+                    >
+                      Ver Ticket
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("finance")}
+                    className="py-1 px-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg text-[10px] uppercase font-bold transition-all"
+                  >
+                    Verificar en Finanzas
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {allowedTabs.filter(tab => tab.id !== "overview").map((tab) => {
