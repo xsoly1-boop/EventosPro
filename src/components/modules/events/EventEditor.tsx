@@ -1014,58 +1014,28 @@ export default function EventEditor() {
             </div>
           ) : (
             // Visual Kanban Board columns grid
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              {/* Column 0: Borradores */}
-              <div className="glass-dark border border-white/5 rounded-2xl p-4 space-y-4">
-                <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    Borradores ({events.filter(e => e.status === "borrador").length})
-                  </span>
-                </div>
-                <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-                  {events.filter(e => e.status === "borrador").map((ev) => {
-                    const baseCost = (ev.packagePrice || 350) * (ev.guestLimit || 150);
-                    const subTotal = baseCost + ev.fixedServices.reduce((acc, s) => acc + s.price, 0);
-                    const total = Math.max(0, subTotal * (1 - ev.discountPercent / 100) - ev.discountFixed);
-                    return (
-                      <div key={ev.id} className="glass p-4 rounded-xl border border-white/5 hover:border-gray-500/30 transition-all space-y-3">
-                        <div>
-                          <h4 className="text-xs font-semibold text-white truncate">{ev.title}</h4>
-                          <p className="text-[10px] text-gray-400 mt-1">{ev.date} • {ev.clientInfo.name}</p>
-                          <span className="text-[11px] font-mono text-gold font-semibold block mt-2">${total.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between items-center border-t border-white/5 pt-2">
-                          <div className="flex gap-2 items-center">
-                            <button onClick={() => handleEditClick(ev)} className="text-[10px] text-gray-400 hover:text-white">Detalles</button>
-                            <button onClick={() => handleCopyShareLink(ev.id)} className="p-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-colors" title="Copiar Enlace Portal Anfitrión"><Share2 className="h-3 w-3" /></button>
-                          </div>
-                          <button onClick={() => promoteEventStatus(ev.id, "borrador")} className="px-2 py-1 bg-blue-500/10 hover:bg-blue-500 text-blue-400 hover:text-white rounded text-[9px] uppercase font-bold tracking-wider transition-colors flex items-center gap-1">Cotizar <ArrowRight className="h-2.5 w-2.5" /></button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {events.filter(e => e.status === "borrador").length === 0 && (
-                    <p className="text-[11px] text-gray-600 italic text-center py-4">Sin borradores</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Column 1: Cotizaciones */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Column 1: Cotizaciones (includes borradores) */}
               <div className="glass-dark border border-white/5 rounded-2xl p-4 space-y-4">
                 <div className="flex justify-between items-center border-b border-white/5 pb-2">
                   <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider">
-                    Cotizaciones ({events.filter(e => e.status === "cotizacion").length})
+                    Cotizaciones ({events.filter(e => e.status === "cotizacion" || e.status === "borrador").length})
                   </span>
                 </div>
                 <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-                  {events.filter(e => e.status === "cotizacion").map((ev) => {
+                  {events.filter(e => e.status === "cotizacion" || e.status === "borrador").map((ev) => {
                     const baseCost = (ev.packagePrice || 350) * (ev.guestLimit || 150);
                     const subTotal = baseCost + ev.fixedServices.reduce((acc, s) => acc + s.price, 0);
                     const total = Math.max(0, subTotal * (1 - ev.discountPercent / 100) - ev.discountFixed);
                     return (
                       <div key={ev.id} className="glass p-4 rounded-xl border border-white/5 hover:border-gold/20 transition-all space-y-3">
                         <div>
-                          <h4 className="text-xs font-semibold text-white truncate">{ev.title}</h4>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-xs font-semibold text-white truncate">{ev.title}</h4>
+                            {ev.status === "borrador" && (
+                              <span className="text-[8px] px-1.5 py-0.5 rounded bg-gray-500/15 border border-gray-500/25 text-gray-400 uppercase font-bold tracking-wider shrink-0">Borrador</span>
+                            )}
+                          </div>
                           <p className="text-[10px] text-gray-400 mt-1">{ev.date} • {ev.clientInfo.name}</p>
                           <span className="text-[11px] font-mono text-gold font-semibold block mt-2">${total.toFixed(2)}</span>
                         </div>
@@ -1086,16 +1056,16 @@ export default function EventEditor() {
                             </button>
                           </div>
                           <button
-                            onClick={() => promoteEventStatus(ev.id, "cotizacion")}
+                            onClick={() => promoteEventStatus(ev.id, ev.status)}
                             className="px-2 py-1 bg-gold/10 hover:bg-gold text-gold hover:text-obsidian rounded text-[9px] uppercase font-bold tracking-wider transition-colors flex items-center gap-1"
                           >
-                            Reservar <ArrowRight className="h-2.5 w-2.5" />
+                            {ev.status === "borrador" ? "Cotizar" : "Reservar"} <ArrowRight className="h-2.5 w-2.5" />
                           </button>
                         </div>
                       </div>
                     );
                   })}
-                  {events.filter(e => e.status === "cotizacion").length === 0 && (
+                  {events.filter(e => e.status === "cotizacion" || e.status === "borrador").length === 0 && (
                     <p className="text-[11px] text-gray-600 italic text-center py-4">Sin cotizaciones</p>
                   )}
                 </div>
