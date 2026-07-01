@@ -46,7 +46,7 @@ interface StaffMember {
 export default function SettingsManager() {
   const { user } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<"staff" | "salon" | "roles" | "catalog" | "scanner" | "apariencia">("staff");
-  const [loginTheme, setLoginTheme] = useState<"1" | "2" | "3">("2");
+  const [loginTheme, setLoginTheme] = useState<"1" | "2" | "3">("1");
   const [themeSaved, setThemeSaved] = useState(false);
 
   // Scanner Codes State

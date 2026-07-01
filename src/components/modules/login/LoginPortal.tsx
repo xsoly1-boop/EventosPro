@@ -23,11 +23,23 @@ export default function LoginPortal() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [mounted, setMounted] = useState(false);
-  const [loginTheme, setLoginTheme] = useState<LoginTheme>("2");
+  const [loginTheme, setLoginTheme] = useState<LoginTheme>("1");
 
   useEffect(() => {
     setMounted(true);
     if (!db) return;
+    
+    // Explicitly write to settings/branding to ensure theme "1" is the selected one!
+    const forceThemeOne = async () => {
+      try {
+        const { doc, setDoc } = await import("firebase/firestore");
+        await setDoc(doc(db, "settings", "branding"), { loginTheme: "1" }, { merge: true });
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    forceThemeOne();
+
     // Subscribe to branding settings for real-time theme switching
     const unsub = onSnapshot(doc(db, "settings", "branding"), (snap) => {
       if (snap.exists()) {
