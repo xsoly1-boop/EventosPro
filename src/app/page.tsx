@@ -175,7 +175,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-obsidian flex flex-col md:flex-row relative text-foreground overflow-hidden">
+    <div className={`min-h-screen bg-obsidian flex flex-col md:flex-row relative text-foreground overflow-hidden theme-${loginTheme}`}>
       {/* Background Image for Theme 1 */}
       {loginTheme === "1" && (
         <>

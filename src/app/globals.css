@@ -65,3 +65,74 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #D4AF37;
 }
+
+/* ==========================================================================
+   THEME 1: GOLD LUXURY ECOSYSTEM UNIFICATION (GLOBAL STYLES & CONTROLS)
+   ========================================================================== */
+
+/* 1. Scrollbar for Theme 1 */
+.theme-1 ::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.4) !important;
+}
+.theme-1 ::-webkit-scrollbar-thumb:hover {
+  background: #D4AF37 !important;
+}
+
+/* 2. Containers & Cards with Gold Borders */
+.theme-1 .glass-dark {
+  background: rgba(11, 12, 16, 0.85) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1.5px solid rgba(212, 175, 55, 0.25) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 15px rgba(212, 175, 55, 0.03) !important;
+}
+
+.theme-1 .glass {
+  background: rgba(11, 12, 16, 0.75) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1.5px solid rgba(212, 175, 55, 0.2) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Convert standard dark backgrounds inside modules to glassmorphic gold cards */
+.theme-1 .bg-white\/5,
+.theme-1 .bg-white\/\[0\.01\],
+.theme-1 .bg-white\/\[0\.02\] {
+  background-color: rgba(11, 12, 16, 0.8) !important;
+  border: 1.5px solid rgba(212, 175, 55, 0.2) !important;
+  backdrop-filter: blur(16px) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* 3. Input Controls (forms, inputs, selectors) */
+.theme-1 input,
+.theme-1 select,
+.theme-1 textarea {
+  background-color: rgba(11, 12, 16, 0.9) !important;
+  border: 1px solid rgba(212, 175, 55, 0.25) !important;
+  color: #FFFFFF !important;
+  transition: all 0.3s ease-in-out !important;
+}
+
+.theme-1 input:focus,
+.theme-1 select:focus,
+.theme-1 textarea:focus {
+  border-color: #D4AF37 !important;
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.3) !important;
+  outline: none !important;
+}
+
+/* 4. Interactive table rows / lists */
+.theme-1 .hover\:bg-white\/5:hover {
+  background-color: rgba(212, 175, 55, 0.08) !important;
+}
+
+/* 5. Headers & Titles shadows */
+.theme-1 h1, 
+.theme-1 h2, 
+.theme-1 h3, 
+.theme-1 h4 {
+  text-shadow: 0 2px 5px rgba(0, 0, 0, 0.8) !important;
+}
+
