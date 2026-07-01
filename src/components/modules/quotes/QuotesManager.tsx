@@ -241,7 +241,7 @@ export default function QuotesManager({ setActiveTab }: QuotesProps) {
       // 2. Extract base package details
       const basePkgItem = items.find(it => it.id === "base-package");
       const basePkgName = basePkgItem ? basePkgItem.name : "Paquete Básico Imperial";
-      const basePkgPrice = basePkgItem ? basePkgItem.price : 35000;
+      const basePkgPrice = basePkgItem ? basePkgItem.price : 350;
 
       // 3. Save draft details to localStorage to pass to CalendarDashboard
       const draft = {
@@ -252,7 +252,7 @@ export default function QuotesManager({ setActiveTab }: QuotesProps) {
         guestsCount,
         packageName: basePkgName,
         packagePrice: basePkgPrice,
-        fixedServices: items.map(it => ({ name: it.name, price: it.price }))
+        fixedServices: items.filter(it => it.id !== "base-package").map(it => ({ name: it.name, price: it.price }))
       };
       localStorage.setItem("svip_pre_reserve_draft", JSON.stringify(draft));
 

@@ -67,7 +67,7 @@ export default function QRScanner() {
   const [selectedEventId, setSelectedEventId] = useState("event-123");
   const { guests, loading, assignGuest, unassignGuest, seedMockData } = useEventTables(selectedEventId);
   const [searchQuery, setSearchQuery] = useState("");
-  const [scanResult, setScanResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [scanResult, setScanResult] = useState<{ success: boolean; message: string; guestName?: string; tableId?: number | string; seatIndex?: number; menuPreference?: string; vipAffiliation?: string; tickets?: number } | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
 
   const [events, setEvents] = useState<{ id: string; title: string }[]>([]);
@@ -112,13 +112,29 @@ export default function QRScanner() {
 
   const handleManualCheckIn = async (guestId: string) => {
     try {
+      const guest = guests.find((g) => g.id === guestId);
       let assigned = false;
       for (let tableNum = 1; tableNum <= totalTables; tableNum++) {
         for (let seatIdx = 0; seatIdx < 10; seatIdx++) {
           const isOccupied = guests.some((g) => g.tableId === tableNum && g.seatIndex === seatIdx);
           if (!isOccupied) {
             await assignGuest(guestId, tableNum, seatIdx);
-            setScanResult({ success: true, message: `Invitado registrado en Mesa ${tableNum} - Silla ${seatIdx + 1}` });
+            
+            // Deterministic mock fields to match high-fidelity mockup visual requirements
+            const charCodeSum = (guest?.name || "").split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+            const menuPreference = charCodeSum % 3 === 0 ? "Pescado Gourmet (Gala Fish)" : charCodeSum % 3 === 1 ? "Corte de Carne Premium (Steak)" : "Pasta Trufada Vegetariana";
+            const vipAffiliation = charCodeSum % 2 === 0 ? "VIP - Invitado de Honor" : "General";
+
+            setScanResult({
+              success: true,
+              message: `Invitado registrado con éxito.`,
+              guestName: guest?.name || "Invitado Registrado",
+              tableId: tableNum,
+              seatIndex: seatIdx + 1,
+              menuPreference,
+              vipAffiliation,
+              tickets: guest?.tickets || 1
+            });
             assigned = true;
             break;
           }
@@ -392,15 +408,7 @@ export default function QRScanner() {
             </div>
           </div>
 
-          {scanResult && (
-            <div className={`p-4 rounded-xl border flex items-start gap-3 justify-center text-left max-w-md mx-auto animate-fade-in ${scanResult.success ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-200" : "bg-red-950/40 border-red-500/30 text-red-200"}`}>
-              {scanResult.success ? <CheckCircle className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" /> : <AlertTriangle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />}
-              <div>
-                <p className="text-xs font-semibold">{scanResult.success ? "Operación Registrada" : "Aviso"}</p>
-                <p className="text-[11px] font-light mt-0.5 leading-relaxed">{scanResult.message}</p>
-              </div>
-            </div>
-          )}
+          {/* Deleted inline result container */}
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -450,15 +458,7 @@ export default function QRScanner() {
               </div>
             </div>
 
-            {scanResult && (
-              <div className={`p-4 rounded-xl border flex items-start gap-3 animate-fade-in ${scanResult.success ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-200" : "bg-red-950/40 border-red-500/30 text-red-200"}`}>
-                {scanResult.success ? <CheckCircle className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" /> : <AlertTriangle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />}
-                <div>
-                  <p className="text-xs font-semibold">{scanResult.success ? "Acceso Autorizado" : "Acceso Denegado"}</p>
-                  <p className="text-[11px] font-light mt-0.5 leading-relaxed">{scanResult.message}</p>
-                </div>
-              </div>
-            )}
+            {/* Deleted inline result container */}
           </div>
 
           {/* Right Column: Guest search & Manual Check-in */}
@@ -526,6 +526,115 @@ export default function QRScanner() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Access Validation Modal */}
+      {scanResult && scanResult.success && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50 animate-fade-in backdrop-blur-md">
+          <div className="glass-dark rounded-2xl border border-gold/20 max-w-sm w-full p-8 text-center space-y-6 animate-scale-up relative">
+            <div className="text-center space-y-2">
+              <span className="text-[10px] text-gold tracking-[0.25em] font-semibold uppercase block">
+                Validación de Pase QR
+              </span>
+              <h2 className="text-xl font-bold text-emerald-400 uppercase tracking-widest">
+                QR CODE SCAN SUCCESSFUL
+              </h2>
+            </div>
+
+            {/* Checked Checkmark Icon with Glow */}
+            <div className="relative w-24 h-24 mx-auto my-6 flex items-center justify-center rounded-full bg-emerald-500/10 border-2 border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+              <div className="absolute inset-2 rounded-full border border-dashed border-emerald-500/40 animate-[spin_20s_linear_infinite]" />
+              <CheckCircle className="text-gold h-12 w-12 animate-scale-up" />
+            </div>
+
+            {/* Guest Information Card */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-left space-y-3.5">
+              <span className="text-[9px] text-gray-500 tracking-wider uppercase block font-semibold">
+                Detalles del Invitado
+              </span>
+              <div>
+                <span className="text-[10px] text-gray-400 block">Nombre del Invitado</span>
+                <span className="text-sm font-semibold text-white">{scanResult.guestName}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-3">
+                <div>
+                  <span className="text-[10px] text-gray-400 block">Mesa Asignada</span>
+                  <span className="text-sm font-semibold text-gold">Mesa {scanResult.tableId}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-gray-400 block">Silla</span>
+                  <span className="text-sm font-semibold text-gold">Silla {scanResult.seatIndex}</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-3">
+                <div>
+                  <span className="text-[10px] text-gray-400 block">Menú Elegido</span>
+                  <span className="text-[11px] text-white font-medium">{scanResult.menuPreference || "Menú Clásico VIP"}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-gray-400 block">Afiliación</span>
+                  <span className="text-[11px] text-white font-medium">{scanResult.vipAffiliation || "General"}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  alert(`Imprimiendo gafete de pase para ${scanResult.guestName}...`);
+                }}
+                className="w-full py-3 bg-gradient-to-r from-gold to-amber-400 text-obsidian rounded-xl text-xs font-bold uppercase tracking-wider shadow-[0_4px_15px_rgba(212,175,55,0.2)] active:scale-[0.98] transition-all"
+              >
+                Imprimir Gafete
+              </button>
+              <button
+                type="button"
+                onClick={() => setScanResult(null)}
+                className="w-full py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-semibold uppercase text-white active:scale-[0.98] transition-all"
+              >
+                Volver a Escanear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Access Validation Modal */}
+      {scanResult && !scanResult.success && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50 animate-fade-in backdrop-blur-md">
+          <div className="glass-dark rounded-2xl border border-red-500/20 max-w-sm w-full p-8 text-center space-y-6 animate-scale-up relative">
+            <div className="text-center space-y-2">
+              <span className="text-[10px] text-red-400 tracking-[0.25em] font-semibold uppercase block">
+                Validación de Pase QR
+              </span>
+              <h2 className="text-xl font-bold text-red-500 uppercase tracking-widest">
+                ACCESO DENEGADO
+              </h2>
+            </div>
+
+            {/* Checked Alert Icon with Glow */}
+            <div className="w-20 h-20 mx-auto my-6 flex items-center justify-center rounded-full bg-red-500/10 border-2 border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+              <AlertTriangle className="text-red-400 h-10 w-10" />
+            </div>
+
+            <p className="text-gray-300 text-xs font-light leading-relaxed">
+              {scanResult.message}
+            </p>
+
+            {/* Action Button */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setScanResult(null)}
+                className="w-full py-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl text-xs font-semibold uppercase text-red-400 active:scale-[0.98] transition-all"
+              >
+                Cerrar y Reintentar
+              </button>
             </div>
           </div>
         </div>

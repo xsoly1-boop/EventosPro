@@ -537,6 +537,52 @@ export default function TableMap({ onBack }: TableMapProps) {
               <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
                 <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(255,255,255,0.015)" strokeWidth="1" />
               </pattern>
+              
+              {/* Drop Shadow filter for 3D Depth */}
+              <filter id="shadow-3d" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="3" dy="8" stdDeviation="6" floodColor="#000000" floodOpacity="0.85" />
+              </filter>
+
+              {/* Gold Glow filter */}
+              <filter id="glow-gold" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="5" result="blur" />
+                <feComponentTransfer in="blur" result="glow">
+                  <feFuncA type="linear" slope="0.6" />
+                </feComponentTransfer>
+                <feMerge>
+                  <feMergeNode in="glow" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+
+              {/* Emerald Glow filter */}
+              <filter id="glow-emerald" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur" />
+                <feOffset dx="0" dy="0" result="offset" />
+                <feFlood floodColor="#10B981" result="color" />
+                <feComposite in="color" in2="blur" operator="in" result="glow" />
+                <feMerge>
+                  <feMergeNode in="glow" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+
+              {/* Radial Gradients for Tables to simulate 3D spherical rendering */}
+              <radialGradient id="table-grad-empty" cx="35%" cy="35%" r="65%">
+                <stop offset="0%" stopColor="#2D2D2D" />
+                <stop offset="70%" stopColor="#1C1C1C" />
+                <stop offset="100%" stopColor="#121212" />
+              </radialGradient>
+              <radialGradient id="table-grad-partial" cx="35%" cy="35%" r="65%">
+                <stop offset="0%" stopColor="#0B3C1B" />
+                <stop offset="70%" stopColor="#051F0D" />
+                <stop offset="100%" stopColor="#031207" />
+              </radialGradient>
+              <radialGradient id="table-grad-full" cx="35%" cy="35%" r="65%">
+                <stop offset="0%" stopColor="#4A3B12" />
+                <stop offset="70%" stopColor="#251D08" />
+                <stop offset="100%" stopColor="#140F03" />
+              </radialGradient>
             </defs>
             <rect width="100%" height="100%" fill="url(#grid)" />
 
@@ -586,6 +632,8 @@ export default function TableMap({ onBack }: TableMapProps) {
                     });
                   }
 
+                  const assignedChairsCount = chairs.filter(c => assignments[c.key]).length;
+
                   return (
                     <g 
                       key={table.id} 
@@ -619,7 +667,7 @@ export default function TableMap({ onBack }: TableMapProps) {
                               r={chairRadius}
                               className={`transition-all duration-300 ${
                                 assigned
-                                  ? "fill-gold stroke-gold-hover stroke-[2]"
+                                  ? "fill-gold stroke-gold-hover stroke-[2] shadow-[0_0_8px_rgba(212,175,55,0.4)]"
                                   : "fill-obsidian stroke-gray-700 hover:stroke-gold/70 stroke-[1]"
                               }`}
                             />
@@ -642,11 +690,26 @@ export default function TableMap({ onBack }: TableMapProps) {
                         );
                       })}
 
+                      {/* 3D Round Table Circle */}
                       <circle
                         cx={table.cx}
                         cy={table.cy}
                         r={tableRadius}
-                        className="fill-dark-gray stroke-gold/40 stroke-[2] shadow-lg group-hover/table:stroke-gold transition-colors duration-300"
+                        className={`transition-all duration-500 ${
+                          assignedChairsCount === chairsCount
+                            ? "stroke-gold/80 fill-[url(#table-grad-full)]"
+                            : assignedChairsCount > 0
+                            ? "stroke-emerald-500/70 fill-[url(#table-grad-partial)]"
+                            : "stroke-white/10 fill-[url(#table-grad-empty)] group-hover/table:stroke-gold/40"
+                        } stroke-[2.5]`}
+                        style={{
+                          filter:
+                            assignedChairsCount === chairsCount
+                              ? "url(#shadow-3d) url(#glow-gold)"
+                              : assignedChairsCount > 0
+                              ? "url(#shadow-3d) url(#glow-emerald)"
+                              : "url(#shadow-3d)",
+                        }}
                       />
 
                       <text
@@ -738,6 +801,7 @@ export default function TableMap({ onBack }: TableMapProps) {
                 // Case A: 1 Single Mesa de Honor (1 to 6 guests)
                 const tableCy = 385; // Center of table y=335 to 435
                 const chairs = getTablePerimeterChairs(600, tableCy, honorCapacity);
+                const honorGuestsCount = chairs.filter(c => assignments[`0-${c.seatIndex}`]).length;
 
                 return (
                   <g
@@ -800,13 +864,28 @@ export default function TableMap({ onBack }: TableMapProps) {
                       );
                     })}
 
+                    {/* 3D Rect Table */}
                     <rect
                       x="450"
                       y="335"
                       width="300"
                       height="100"
                       rx="10"
-                      className="fill-dark-gray stroke-gold stroke-[3] shadow-[0_0_20px_rgba(212,175,55,0.15)] group-hover/honor:stroke-gold-hover transition-all duration-300"
+                      className={`transition-all duration-500 ${
+                        honorGuestsCount === honorCapacity
+                          ? "stroke-gold/80 fill-[url(#table-grad-full)]"
+                          : honorGuestsCount > 0
+                          ? "stroke-emerald-500/70 fill-[url(#table-grad-partial)]"
+                          : "stroke-white/10 fill-[url(#table-grad-empty)] group-hover/honor:stroke-gold/40"
+                      } stroke-[2.5]`}
+                      style={{
+                        filter:
+                          honorGuestsCount === honorCapacity
+                            ? "url(#shadow-3d) url(#glow-gold)"
+                            : honorGuestsCount > 0
+                            ? "url(#shadow-3d) url(#glow-emerald)"
+                            : "url(#shadow-3d)",
+                      }}
                     />
                     <text
                       x="600"
@@ -829,6 +908,8 @@ export default function TableMap({ onBack }: TableMapProps) {
 
                 const leftChairs = getTableVerticalPerimeterChairs(table1Cx, tableCy, topSeatsCount);
                 const rightChairs = getTableVerticalPerimeterChairs(table2Cx, tableCy, bottomSeatsCount);
+                const leftGuestsCount = leftChairs.filter(c => assignments[`0-${c.seatIndex}`]).length;
+                const rightGuestsCount = rightChairs.filter(c => assignments[`99-${c.seatIndex}`]).length;
 
                 return (
                   <g className="group/honor-double">
@@ -893,13 +974,28 @@ export default function TableMap({ onBack }: TableMapProps) {
                         );
                       })}
 
+                      {/* 3D Left Honor Table */}
                       <rect
                         x="400"
                         y="235"
                         width="100"
                         height="300"
                         rx="10"
-                        className="fill-dark-gray stroke-gold stroke-[3] shadow-[0_0_15px_rgba(212,175,55,0.15)] hover:stroke-gold-hover transition-all duration-300"
+                        className={`transition-all duration-500 ${
+                          leftGuestsCount === topSeatsCount
+                            ? "stroke-gold/80 fill-[url(#table-grad-full)]"
+                            : leftGuestsCount > 0
+                            ? "stroke-emerald-500/70 fill-[url(#table-grad-partial)]"
+                            : "stroke-white/10 fill-[url(#table-grad-empty)] group-hover/table:stroke-gold/40"
+                        } stroke-[2.5]`}
+                        style={{
+                          filter:
+                            leftGuestsCount === topSeatsCount
+                              ? "url(#shadow-3d) url(#glow-gold)"
+                              : leftGuestsCount > 0
+                              ? "url(#shadow-3d) url(#glow-emerald)"
+                              : "url(#shadow-3d)",
+                        }}
                       />
                       <text
                         x="450"
@@ -963,13 +1059,28 @@ export default function TableMap({ onBack }: TableMapProps) {
                         );
                       })}
 
+                      {/* 3D Right Honor Table */}
                       <rect
                         x="700"
                         y="235"
                         width="100"
                         height="300"
                         rx="10"
-                        className="fill-dark-gray stroke-gold stroke-[3] shadow-[0_0_15px_rgba(212,175,55,0.15)] hover:stroke-gold-hover transition-all duration-300"
+                        className={`transition-all duration-500 ${
+                          rightGuestsCount === bottomSeatsCount
+                            ? "stroke-gold/80 fill-[url(#table-grad-full)]"
+                            : rightGuestsCount > 0
+                            ? "stroke-emerald-500/70 fill-[url(#table-grad-partial)]"
+                            : "stroke-white/10 fill-[url(#table-grad-empty)] group-hover/table:stroke-gold/40"
+                        } stroke-[2.5]`}
+                        style={{
+                          filter:
+                            rightGuestsCount === bottomSeatsCount
+                              ? "url(#shadow-3d) url(#glow-gold)"
+                              : rightGuestsCount > 0
+                              ? "url(#shadow-3d) url(#glow-emerald)"
+                              : "url(#shadow-3d)",
+                        }}
                       />
                       <text
                         x="750"
@@ -1029,6 +1140,8 @@ export default function TableMap({ onBack }: TableMapProps) {
                 });
               }
 
+              const assignedChairsCount = chairs.filter(c => assignments[c.key]).length;
+
               return (
                 <g 
                   key={table.id} 
@@ -1065,7 +1178,7 @@ export default function TableMap({ onBack }: TableMapProps) {
                           r={chairRadius}
                           className={`transition-all duration-300 ${
                             assigned
-                              ? "fill-gold stroke-gold-hover stroke-[2]"
+                              ? "fill-gold stroke-gold-hover stroke-[2] shadow-[0_0_8px_rgba(212,175,55,0.4)]"
                               : "fill-obsidian stroke-gray-700 hover:stroke-gold/70 stroke-[1]"
                           }`}
                         />
@@ -1090,12 +1203,26 @@ export default function TableMap({ onBack }: TableMapProps) {
                     );
                   })}
 
-                  {/* Draw main round table */}
+                  {/* 3D Round Table Circle */}
                   <circle
                     cx={table.cx}
                     cy={table.cy}
                     r={tableRadius}
-                    className="fill-dark-gray stroke-gold/40 stroke-[2] shadow-lg group-hover/table:stroke-gold transition-colors duration-300"
+                    className={`transition-all duration-500 ${
+                      assignedChairsCount === chairsCount
+                        ? "stroke-gold/80 fill-[url(#table-grad-full)]"
+                        : assignedChairsCount > 0
+                        ? "stroke-emerald-500/70 fill-[url(#table-grad-partial)]"
+                        : "stroke-white/10 fill-[url(#table-grad-empty)] group-hover/table:stroke-gold/40"
+                    } stroke-[2.5]`}
+                    style={{
+                      filter:
+                        assignedChairsCount === chairsCount
+                          ? "url(#shadow-3d) url(#glow-gold)"
+                          : assignedChairsCount > 0
+                          ? "url(#shadow-3d) url(#glow-emerald)"
+                          : "url(#shadow-3d)",
+                    }}
                   />
 
                   {/* Table Label */}

@@ -317,10 +317,18 @@ export default function SettingsManager() {
   useEffect(() => {
     if (!db) return;
 
-    // Listen to packages
+    // Listen to packages with auto-migration from flat to per-guest prices
     const unsubPkgs = onSnapshot(collection(db, "catalog_packages"), (snapshot) => {
       const list: any[] = [];
-      snapshot.forEach(docSnap => list.push({ id: docSnap.id, ...docSnap.data() }));
+      snapshot.forEach(async (docSnap) => {
+        const data = docSnap.data();
+        let price = data.price || 0;
+        if (price > 1000) {
+          price = Math.round(price / 100);
+          await setDoc(docSnap.ref, { price }, { merge: true });
+        }
+        list.push({ id: docSnap.id, ...data, price });
+      });
       setPackages(list);
     });
 
@@ -342,9 +350,9 @@ export default function SettingsManager() {
     getDocs(collection(db, "catalog_packages")).then((snap) => {
       if (snap.empty) {
         const defaults = [
-          { name: "Paquete Básico Imperial", price: 35000, description: "Incluye Renta de Salón por 5 hrs, Mobiliario estándar, Limpieza, Luz de cortesía y Coordinador básico." },
-          { name: "Paquete Premium Imperial", price: 60000, description: "Incluye Renta, Banquete clásico, Refrescos, Hielo, DJ Premium Pro, Pista LED, Animación y Hostess." },
-          { name: "Paquete VIP Imperial", price: 95000, description: "Todo incluido: Banquete Gourmet 3 tiempos, Grupo Musical en Vivo, Cabina 360, Pirotecnia Fría y Valet Parking." }
+          { name: "Paquete Básico Imperial", price: 350, description: "Incluye Renta de Salón por 5 hrs, Mobiliario estándar, Limpieza, Luz de cortesía y Coordinador básico." },
+          { name: "Paquete Premium Imperial", price: 600, description: "Incluye Renta, Banquete clásico, Refrescos, Hielo, DJ Premium Pro, Pista LED, Animación y Hostess." },
+          { name: "Paquete VIP Imperial", price: 950, description: "Todo incluido: Banquete Gourmet 3 tiempos, Grupo Musical en Vivo, Cabina 360, Pirotecnia Fría y Valet Parking." }
         ];
         defaults.forEach(async (p, idx) => {
           await setDoc(doc(db, "catalog_packages", `pkg-${idx}`), p);
@@ -949,7 +957,7 @@ export default function SettingsManager() {
                     <div>
                       <h4 className="text-xs font-semibold text-white">{pkg.name}</h4>
                       <p className="text-[10px] text-gray-400 font-light mt-1 leading-relaxed">{pkg.description}</p>
-                      <span className="text-[11px] font-mono text-gold font-bold block mt-2">${pkg.price.toLocaleString()}</span>
+                      <span className="text-[11px] font-mono text-gold font-bold block mt-2">${pkg.price.toLocaleString()} / Persona</span>
                     </div>
                     <button
                       onClick={() => handleDeletePackage(pkg.id)}
@@ -982,7 +990,7 @@ export default function SettingsManager() {
                   />
                 </div>
                 <div>
-                  <label className="text-[9px] text-gray-400 font-light uppercase block mb-1">Precio Base ($)</label>
+                  <label className="text-[9px] text-gray-400 font-light uppercase block mb-1">Precio por Persona ($)</label>
                   <input
                     type="number"
                     required

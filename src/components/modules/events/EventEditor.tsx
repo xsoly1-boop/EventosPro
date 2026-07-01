@@ -51,6 +51,8 @@ interface EventData {
   openSeatingMode: boolean | "hibrido";
   clientInfo: ClientInfo;
   menu: string; // e.g. "Espagueti al burro, lomo adobado, papas al gratin"
+  packageName?: string;
+  packagePrice?: number;
   fixedServices: FixedService[];
   discountPercent: number;
   discountFixed: number;
@@ -83,6 +85,8 @@ export default function EventEditor() {
   const [discountFixed, setDiscountFixed] = useState(0);
   const [enableBalcony, setEnableBalcony] = useState(false);
   const [paidAmount, setPaidAmount] = useState(0);
+  const [packageName, setPackageName] = useState("Paquete Básico Imperial");
+  const [packagePrice, setPackagePrice] = useState(350);
 
   // Fixed Services editing inside form
   const [fixedServices, setFixedServices] = useState<FixedService[]>([]);
@@ -92,6 +96,7 @@ export default function EventEditor() {
   // Dynamic databases catalog state hooks
   const [dbServices, setDbServices] = useState<{ name: string; price: number }[]>([]);
   const [dbMenus, setDbMenus] = useState<{ label: string; items: string }[]>([]);
+  const [dbPackages, setDbPackages] = useState<{ name: string; price: number; description: string }[]>([]);
 
   useEffect(() => {
     if (!db) return;
@@ -105,9 +110,15 @@ export default function EventEditor() {
       snap.forEach(docSnap => list.push(docSnap.data()));
       setDbMenus(list);
     });
+    const unsubPkgs = onSnapshot(collection(db, "catalog_packages"), (snap) => {
+      const list: any[] = [];
+      snap.forEach(docSnap => list.push(docSnap.data()));
+      setDbPackages(list);
+    });
     return () => {
       unsubSvc();
       unsubMenus();
+      unsubPkgs();
     };
   }, []);
 
@@ -168,11 +179,13 @@ export default function EventEditor() {
           id: docSnap.id,
           title: data.title || "Evento Sin Nombre",
           date: safeFormatDate(data.date),
-          guestLimit: data.guestLimit || 150,
+          guestLimit: data.guestLimit || data.guestsCount || 150,
           status: data.status || "cotizacion",
           openSeatingMode: data.openSeatingMode !== undefined ? data.openSeatingMode : false,
           clientInfo: data.clientInfo || { name: "", phone: "", email: "", rfc: "", address: "" },
           menu: data.menu || "",
+          packageName: data.packageName || "Paquete Básico Imperial",
+          packagePrice: Number(data.packagePrice) || 350,
           fixedServices: data.fixedServices || [],
           discountPercent: data.discountPercent || 0,
           discountFixed: data.discountFixed || 0,
@@ -257,6 +270,8 @@ export default function EventEditor() {
     setClientRfc(event.clientInfo.rfc);
     setClientAddress(event.clientInfo.address);
     setMenu(event.menu);
+    setPackageName(event.packageName || "Paquete Básico Imperial");
+    setPackagePrice(Number(event.packagePrice) || 350);
     setFixedServices(event.fixedServices);
     setDiscountPercent(event.discountPercent);
     setDiscountFixed(event.discountFixed);
@@ -278,6 +293,8 @@ export default function EventEditor() {
     setClientRfc("");
     setClientAddress("");
     setMenu("");
+    setPackageName("Paquete Básico Imperial");
+    setPackagePrice(350);
     setFixedServices([]);
     setDiscountPercent(0);
     setDiscountFixed(0);
@@ -312,6 +329,8 @@ export default function EventEditor() {
         address: clientAddress
       },
       menu,
+      packageName,
+      packagePrice: Number(packagePrice),
       fixedServices,
       discountPercent: Number(discountPercent),
       discountFixed: Number(discountFixed),
@@ -445,6 +464,46 @@ export default function EventEditor() {
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-gold/30"
                 />
+              </div>
+
+              <div>
+                <label className="text-[10px] text-gray-400 font-light uppercase block mb-1">Paquete Base de Evento (Precio por Persona)</label>
+                <select
+                  value={
+                    (() => {
+                      const pkgsList = dbPackages.length > 0 ? dbPackages : [
+                        { name: "Paquete Básico Imperial", price: 350 },
+                        { name: "Paquete Premium Imperial", price: 600 },
+                        { name: "Paquete VIP Imperial", price: 950 }
+                      ];
+                      const idx = pkgsList.findIndex(p => p.name === packageName);
+                      return idx >= 0 ? idx : "";
+                    })()
+                  }
+                  onChange={(e) => {
+                    const pkgsList = dbPackages.length > 0 ? dbPackages : [
+                      { name: "Paquete Básico Imperial", price: 350 },
+                      { name: "Paquete Premium Imperial", price: 600 },
+                      { name: "Paquete VIP Imperial", price: 950 }
+                    ];
+                    if (e.target.value !== "") {
+                      const pkg = pkgsList[Number(e.target.value)];
+                      setPackageName(pkg.name);
+                      setPackagePrice(pkg.price);
+                    }
+                  }}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-gold/30"
+                >
+                  {(dbPackages.length > 0 ? dbPackages : [
+                    { name: "Paquete Básico Imperial", price: 350 },
+                    { name: "Paquete Premium Imperial", price: 600 },
+                    { name: "Paquete VIP Imperial", price: 950 }
+                  ]).map((pkg, idx) => (
+                    <option key={idx} value={idx}>
+                      {pkg.name} (${pkg.price.toLocaleString("es-MX")} / Persona)
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
@@ -743,39 +802,67 @@ export default function EventEditor() {
 
               {/* Total calculations */}
               <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-2">
+                <div className="flex justify-between text-xs text-gold font-semibold border-b border-white/5 pb-2 mb-2">
+                  <span>Concepto</span>
+                  <span>Total</span>
+                </div>
+                
+                {/* Base Package Row */}
+                <div className="flex justify-between text-[11px] text-white font-medium">
+                  <div className="flex flex-col">
+                    <span>Costo Base: {packageName}</span>
+                    <span className="text-[10px] text-gray-500 font-normal font-mono">(${packagePrice.toFixed(2)} x {guestLimit} Pax)</span>
+                  </div>
+                  <span className="font-mono">${(packagePrice * guestLimit).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                </div>
+
+                {/* Additional Services */}
                 {fixedServices.map((srv, idx) => (
-                  <div key={idx} className="flex justify-between text-[11px] text-gray-500 font-light">
+                  <div key={idx} className="flex justify-between text-[11px] text-gray-400 font-light pt-1.5">
                     <span>{srv.name}</span>
-                    <span>${srv.price.toFixed(2)}</span>
+                    <span className="font-mono">${srv.price.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
                   </div>
                 ))}
-                {fixedServices.length === 0 && (
-                  <div className="text-[11px] text-gray-500 italic text-center py-2">
-                    Sin servicios cargados
+                
+                {fixedServices.length > 0 && (
+                  <div className="border-t border-white/5 pt-1.5 flex justify-between text-[11px] text-gray-500 font-light">
+                    <span>Subtotal Adicionales</span>
+                    <span className="font-mono">${fixedServices.reduce((acc, s) => acc + s.price, 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
                   </div>
                 )}
 
                 <div className="border-t border-white/5 pt-2 flex flex-col gap-1 text-xs">
-                  {discountPercent > 0 && (
-                    <div className="flex justify-between text-red-400">
-                      <span>Descuento % ({discountPercent}%)</span>
-                      <span>-${((fixedServices.reduce((acc, s) => acc + s.price, 0)) * discountPercent / 100).toFixed(2)}</span>
-                    </div>
-                  )}
-                  {discountFixed > 0 && (
-                    <div className="flex justify-between text-red-400">
-                      <span>Descuento Fijo</span>
-                      <span>-${discountFixed.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between font-bold text-white text-sm pt-1 border-t border-white/5">
-                    <span>Monto Total Neto</span>
-                    <span className="text-gold font-mono">
-                      ${(
-                        fixedServices.reduce((acc, s) => acc + s.price, 0) * (1 - discountPercent / 100) - discountFixed
-                      ).toFixed(2)}
-                    </span>
-                  </div>
+                  {/* Calculations variables */}
+                  {(() => {
+                    const baseCost = packagePrice * guestLimit;
+                    const servicesCost = fixedServices.reduce((acc, s) => acc + s.price, 0);
+                    const subTotal = baseCost + servicesCost;
+                    const pctDiscount = subTotal * discountPercent / 100;
+                    const totalNeto = Math.max(0, subTotal - pctDiscount - discountFixed);
+                    
+                    return (
+                      <>
+                        {discountPercent > 0 && (
+                          <div className="flex justify-between text-red-400">
+                            <span>Descuento % ({discountPercent}%)</span>
+                            <span className="font-mono">-${pctDiscount.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        {discountFixed > 0 && (
+                          <div className="flex justify-between text-red-400">
+                            <span>Descuento Fijo</span>
+                            <span className="font-mono">-${discountFixed.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-bold text-white text-sm pt-2.5 border-t border-white/5">
+                          <span>Monto Total Neto</span>
+                          <span className="text-gold font-mono">
+                            ${totalNeto.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -831,9 +918,10 @@ export default function EventEditor() {
           ) : viewMode === "list" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {events.map((ev) => {
-                const subTotal = ev.fixedServices.reduce((acc, s) => acc + s.price, 0);
+                const baseCost = (ev.packagePrice || 350) * (ev.guestLimit || 150);
+                const subTotal = baseCost + ev.fixedServices.reduce((acc, s) => acc + s.price, 0);
                 const discount = (subTotal * ev.discountPercent / 100) + ev.discountFixed;
-                const total = subTotal - discount;
+                const total = Math.max(0, subTotal - discount);
 
                 return (
                   <div key={ev.id} className="glass p-5 rounded-2xl border border-white/5 flex flex-col justify-between hover:border-gold/30 hover:shadow-[0_4px_25px_rgba(212,175,55,0.03)] transition-all duration-300 relative group overflow-hidden">
@@ -932,7 +1020,9 @@ export default function EventEditor() {
                 </div>
                 <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                   {events.filter(e => e.status === "cotizacion").map((ev) => {
-                    const total = ev.fixedServices.reduce((acc, s) => acc + s.price, 0) * (1 - ev.discountPercent / 100) - ev.discountFixed;
+                    const baseCost = (ev.packagePrice || 350) * (ev.guestLimit || 150);
+                    const subTotal = baseCost + ev.fixedServices.reduce((acc, s) => acc + s.price, 0);
+                    const total = Math.max(0, subTotal * (1 - ev.discountPercent / 100) - ev.discountFixed);
                     return (
                       <div key={ev.id} className="glass p-4 rounded-xl border border-white/5 hover:border-gold/20 transition-all space-y-3">
                         <div>
@@ -981,7 +1071,9 @@ export default function EventEditor() {
                 </div>
                 <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                   {events.filter(e => e.status === "pre-reserva").map((ev) => {
-                    const total = ev.fixedServices.reduce((acc, s) => acc + s.price, 0) * (1 - ev.discountPercent / 100) - ev.discountFixed;
+                    const baseCost = (ev.packagePrice || 350) * (ev.guestLimit || 150);
+                    const subTotal = baseCost + ev.fixedServices.reduce((acc, s) => acc + s.price, 0);
+                    const total = Math.max(0, subTotal * (1 - ev.discountPercent / 100) - ev.discountFixed);
                     return (
                       <div key={ev.id} className="glass p-4 rounded-xl border border-gold/10 hover:border-gold/30 transition-all space-y-3">
                         <div>
@@ -1030,7 +1122,9 @@ export default function EventEditor() {
                 </div>
                 <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                   {events.filter(e => e.status === "contrato").map((ev) => {
-                    const total = ev.fixedServices.reduce((acc, s) => acc + s.price, 0) * (1 - ev.discountPercent / 100) - ev.discountFixed;
+                    const baseCost = (ev.packagePrice || 350) * (ev.guestLimit || 150);
+                    const subTotal = baseCost + ev.fixedServices.reduce((acc, s) => acc + s.price, 0);
+                    const total = Math.max(0, subTotal * (1 - ev.discountPercent / 100) - ev.discountFixed);
                     return (
                       <div key={ev.id} className="glass p-4 rounded-xl border border-green-500/10 hover:border-green-500/30 transition-all space-y-3">
                         <div>
