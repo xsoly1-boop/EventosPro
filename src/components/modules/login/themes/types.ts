@@ -22,6 +22,8 @@ export interface ThemeProps {
   logoUrl?: string;
   portalTitle?: string;
   brandName?: string;
+  logoWidth?: number;
+  logoHeight?: number;
 }
 
 export const ACCESS_ROWS = [

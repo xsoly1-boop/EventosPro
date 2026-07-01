@@ -7,7 +7,7 @@ import { ThemeProps, ACCESS_ROWS } from "./types";
 
 const ICONS = { admin: Shield, client: User, staff: QrCode };
 
-export default function ThemeOne({ activeForm, setActiveForm, authRole, hostCode, setHostCode, email, setEmail, password, setPassword, loading, error, setError, mounted, handleHostSubmit, handleAuthSubmit, handleRowAction, loginDemo, logoUrl, portalTitle, brandName }: ThemeProps) {
+export default function ThemeOne({ activeForm, setActiveForm, authRole, hostCode, setHostCode, email, setEmail, password, setPassword, loading, error, setError, mounted, handleHostSubmit, handleAuthSubmit, handleRowAction, loginDemo, logoUrl, portalTitle, brandName, logoWidth, logoHeight }: ThemeProps) {
   const displayBrand = brandName || "SocialesVIP";
   const displayTitle = portalTitle || "Gestión Premium de Eventos Sociales";
 
@@ -53,7 +53,14 @@ export default function ThemeOne({ activeForm, setActiveForm, authRole, hostCode
         style={{ opacity: mounted ? 1 : 0, transform: mounted ? "translateY(0)" : "translateY(-16px)", transition: "all 0.7s ease" }}>
         <div className="flex items-center justify-center gap-2.5 mb-4 min-h-[48px]">
           {logoUrl ? (
-            <img src={logoUrl} alt="Logo" className="max-h-14 object-contain filter drop-shadow-[0_2px_10px_rgba(212,175,55,0.25)]" />
+            <img src={logoUrl} alt="Logo"
+              style={{
+                width: logoWidth ? `${logoWidth}px` : undefined,
+                height: logoHeight ? `${logoHeight}px` : undefined,
+                objectFit: 'contain',
+              }}
+              className={`filter drop-shadow-[0_2px_10px_rgba(212,175,55,0.25)] ${!logoWidth && !logoHeight ? 'max-h-14 object-contain' : ''}`}
+            />
           ) : (
             <>
               <div className="w-9 h-9 rounded-lg bg-gold/15 border border-gold/25 flex items-center justify-center shadow-[0_0_15px_rgba(212,175,55,0.25)]">

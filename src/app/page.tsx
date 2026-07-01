@@ -41,6 +41,8 @@ export default function Home() {
   const [loginTheme, setLoginTheme] = useState<string>("1");
   const [logoUrl, setLogoUrl] = useState<string>("");
   const [brandName, setBrandName] = useState<string>("");
+  const [logoWidth, setLogoWidth] = useState<number>(0);
+  const [logoHeight, setLogoHeight] = useState<number>(0);
 
   useEffect(() => {
     if (!db) return;
@@ -50,6 +52,8 @@ export default function Home() {
         if (data?.loginTheme) setLoginTheme(data.loginTheme);
         if (data?.logoUrl !== undefined) setLogoUrl(data.logoUrl);
         if (data?.brandName !== undefined) setBrandName(data.brandName);
+        if (data?.logoWidth !== undefined) setLogoWidth(Number(data.logoWidth) || 0);
+        if (data?.logoHeight !== undefined) setLogoHeight(Number(data.logoHeight) || 0);
       }
     });
     return () => unsubBranding();
@@ -212,7 +216,15 @@ export default function Home() {
           {/* Logo Branding */}
           <div className="flex items-center gap-2 min-h-[32px]">
             {logoUrl ? (
-              <img src={logoUrl} alt="Logo" className="max-h-8 max-w-[180px] object-contain" />
+              <img src={logoUrl} alt="Logo"
+                style={{
+                  width: logoWidth ? `${logoWidth}px` : undefined,
+                  height: logoHeight ? `${logoHeight}px` : undefined,
+                  maxWidth: '180px',
+                  objectFit: 'contain',
+                }}
+                className={!logoWidth && !logoHeight ? "max-h-8 object-contain" : ""}
+              />
             ) : (
               <>
                 <Sparkles className="text-gold h-5 w-5 animate-pulse" />

@@ -27,6 +27,8 @@ export default function LoginPortal() {
   const [logoUrl, setLogoUrl] = useState<string>("");
   const [portalTitle, setPortalTitle] = useState<string>("");
   const [brandName, setBrandName] = useState<string>("");
+  const [logoWidth, setLogoWidth] = useState<number>(0);
+  const [logoHeight, setLogoHeight] = useState<number>(0);
 
   useEffect(() => {
     setMounted(true);
@@ -55,6 +57,8 @@ export default function LoginPortal() {
         if (data?.logoUrl !== undefined) setLogoUrl(data.logoUrl);
         if (data?.portalTitle !== undefined) setPortalTitle(data.portalTitle);
         if (data?.brandName !== undefined) setBrandName(data.brandName);
+        if (data?.logoWidth !== undefined) setLogoWidth(Number(data.logoWidth) || 0);
+        if (data?.logoHeight !== undefined) setLogoHeight(Number(data.logoHeight) || 0);
       }
     });
     return () => unsub();
@@ -107,6 +111,8 @@ export default function LoginPortal() {
     logoUrl,
     portalTitle,
     brandName,
+    logoWidth,
+    logoHeight,
   };
 
   if (loginTheme === "1") return <ThemeOne {...themeProps} />;
