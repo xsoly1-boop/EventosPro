@@ -14,7 +14,7 @@ export default function ThemeOne({ activeForm, setActiveForm, authRole, hostCode
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-10 relative overflow-hidden"
       style={{ background: "radial-gradient(ellipse at 50% 0%, #1a1408 0%, #050505 60%)" }}>
       {/* Background base */}
-      <div className="absolute inset-0 bg-cover bg-center opacity-20" style={{ backgroundImage: "url('/login-bg.jpg')" }} />
+      <div className="absolute inset-0 bg-cover bg-center opacity-35" style={{ backgroundImage: "url('/login-bg.jpg')" }} />
       <div className="absolute inset-0 bg-black/70" />
 
       {/* Header */}
@@ -94,7 +94,7 @@ export default function ThemeOne({ activeForm, setActiveForm, authRole, hostCode
   if (activeForm === "host-code") return (
     <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden"
       style={{ background: "radial-gradient(ellipse at 50% 0%, #1a1408 0%, #050505 70%)" }}>
-      <div className="absolute inset-0 bg-cover bg-center opacity-15" style={{ backgroundImage: "url('/card-client.jpg')" }} />
+      <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{ backgroundImage: "url('/login-bg.jpg')" }} />
       <div className="absolute inset-0 bg-black/75" />
       <div className="relative z-10 w-full max-w-md">
         <button onClick={() => setActiveForm("menu")} className="flex items-center gap-1.5 text-[10px] text-gray-500 hover:text-gold uppercase tracking-widest font-semibold mb-8 transition-colors">
@@ -126,7 +126,7 @@ export default function ThemeOne({ activeForm, setActiveForm, authRole, hostCode
   return (
     <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden"
       style={{ background: "radial-gradient(ellipse at 50% 0%, #1a1408 0%, #050505 70%)" }}>
-      <div className="absolute inset-0 bg-cover bg-center opacity-15" style={{ backgroundImage: "url('/card-admin.jpg')" }} />
+      <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{ backgroundImage: "url('/login-bg.jpg')" }} />
       <div className="absolute inset-0 bg-black/75" />
       <div className="relative z-10 w-full max-w-md">
         <button onClick={() => setActiveForm("menu")} className="flex items-center gap-1.5 text-[10px] text-gray-500 hover:text-gold uppercase tracking-widest font-semibold mb-8 transition-colors">
