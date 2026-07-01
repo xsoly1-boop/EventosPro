@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { DollarSign, Landmark, ArrowUpRight, ArrowDownRight, Plus, Receipt } from "lucide-react";
+import { DollarSign, Landmark, ArrowUpRight, ArrowDownRight, Plus, Receipt, X, Camera, Image as ImageIcon } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { 
   collection, 
@@ -35,6 +35,7 @@ export default function FinanceDashboard() {
 
   // Payment reports verification states
   const [pendingReports, setPendingReports] = useState<any[]>([]);
+  const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
 
   useEffect(() => {
     if (!db) return;
@@ -416,7 +417,20 @@ export default function FinanceDashboard() {
                     <span className="text-[10px] text-gray-500">{rep.eventTitle}</span>
                   </td>
                   <td className="py-3 px-4 text-center font-mono">{rep.date}</td>
-                  <td className="py-3 px-4">{rep.reference}</td>
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-2">
+                      <span>{rep.reference}</span>
+                      {rep.receiptImage && (
+                        <button
+                          onClick={() => setSelectedReceipt(rep.receiptImage)}
+                          className="px-2 py-0.5 rounded bg-gold/10 hover:bg-gold/25 border border-gold/20 text-gold text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all"
+                          title="Ver comprobante adjunto"
+                        >
+                          <ImageIcon className="h-3 w-3" /> Ver Recibo
+                        </button>
+                      )}
+                    </div>
+                  </td>
                   <td className="py-3 px-4 text-right text-emerald-400 font-mono font-bold">
                     ${rep.amount.toLocaleString()}
                   </td>
@@ -543,6 +557,30 @@ export default function FinanceDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Selected Receipt Preview Modal */}
+      {selectedReceipt && (
+        <div className="fixed inset-0 bg-obsidian/95 flex items-center justify-center p-4 z-[60] animate-fade-in backdrop-blur-md">
+          <div className="relative max-w-3xl w-full max-h-[85vh] flex flex-col items-center justify-center animate-scale-up">
+            <button
+              onClick={() => setSelectedReceipt(null)}
+              className="absolute -top-12 right-0 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all shadow-lg active:scale-95"
+              title="Cerrar vista"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div className="bg-obsidian border border-white/15 rounded-2xl overflow-hidden shadow-2xl p-4 flex items-center justify-center max-h-[80vh]">
+              <img
+                src={selectedReceipt}
+                alt="Comprobante de Pago"
+                className="max-w-full max-h-[70vh] object-contain rounded-lg"
+              />
+            </div>
+            <p className="text-[10px] text-gray-500 font-light mt-3 tracking-wider uppercase font-mono">
+              Comprobante de transferencia / depósito
+            </p>
           </div>
         </div>
       )}

@@ -30,7 +30,10 @@ import {
   Sparkles,
   ChevronRight,
   Plus,
-  Palette
+  Palette,
+  Camera,
+  X,
+  FileImage
 } from "lucide-react";
 
 type TabType = "overview" | "tables" | "quotes" | "finance" | "timeline" | "scanner" | "settings" | "calendar" | "events" | "personalization";
@@ -321,6 +324,50 @@ function OverviewTab({ user, setActiveTab, allowedTabs, loginTheme }: OverviewPr
   const [payReference, setPayReference] = useState("");
   const [reports, setReports] = useState<any[]>([]);
   const [isPayReporting, setIsPayReporting] = useState(false);
+  const [receiptImage, setReceiptImage] = useState<string>("");
+  const [isCompressing, setIsCompressing] = useState(false);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsCompressing(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+          setReceiptImage(dataUrl);
+        }
+        setIsCompressing(false);
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
 
   useEffect(() => {
     if (!db || !isClient) return;
@@ -351,11 +398,13 @@ function OverviewTab({ user, setActiveTab, allowedTabs, loginTheme }: OverviewPr
         date: payDate,
         amount: Number(payAmount),
         reference: payReference,
+        receiptImage: receiptImage || null,
         status: "pending",
         createdAt: new Date().toISOString()
       });
       setPayAmount("");
       setPayReference("");
+      setReceiptImage("");
       alert("Reporte de pago enviado con éxito. Pendiente de verificación por gerencia.");
     } catch (err) {
       console.error(err);
@@ -533,6 +582,48 @@ function OverviewTab({ user, setActiveTab, allowedTabs, loginTheme }: OverviewPr
                   onChange={(e) => setPayReference(e.target.value)}
                   className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold/30"
                 />
+              </div>
+
+              {/* Screenshot/Receipt Upload */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] text-gray-400 font-light uppercase block mb-1">
+                  Foto de Comprobante / Transferencia (Opcional)
+                </label>
+                
+                {receiptImage ? (
+                  <div className="relative rounded-xl overflow-hidden border border-gold/30 bg-black/40 p-2 flex items-center justify-between gap-3 group animate-scale-up">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileImage className="h-5 w-5 text-gold shrink-0" />
+                      <span className="text-[10px] text-gray-300 truncate font-mono">Comprobante Cargado</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <img src={receiptImage} alt="Comprobante preview" className="w-8 h-8 rounded object-cover border border-white/10" />
+                      <button
+                        type="button"
+                        onClick={() => setReceiptImage("")}
+                        className="p-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all"
+                        title="Eliminar comprobante"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="relative border border-dashed border-white/10 hover:border-gold/30 rounded-xl py-3 px-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-black/20 hover:bg-black/40 transition-all duration-300 group">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      disabled={isCompressing}
+                    />
+                    <Camera className="h-5 w-5 text-gray-500 group-hover:text-gold transition-colors" />
+                    <span className="text-[10px] text-gray-400 group-hover:text-gray-200 transition-colors font-medium">
+                      {isCompressing ? "Procesando..." : "Subir Captura / Foto"}
+                    </span>
+                    <span className="text-[8px] text-gray-600 font-light">Máx. 5MB. Se optimizará automáticamente.</span>
+                  </label>
+                )}
               </div>
 
               <button
