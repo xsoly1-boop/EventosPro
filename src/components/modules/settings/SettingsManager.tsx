@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { db, firebaseConfig } from "@/lib/firebase";
-import { initializeApp } from "firebase/app";
+import { initializeApp, deleteApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { 
   collection, 
@@ -568,7 +568,7 @@ export default function SettingsManager() {
       setIsCreatingAccount(false);
       if (secondaryApp) {
         try {
-          await secondaryApp.delete();
+          await deleteApp(secondaryApp);
         } catch (e) {
           console.error("Error deleting secondary app instance:", e);
         }
