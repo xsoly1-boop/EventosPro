@@ -36,6 +36,18 @@ type TabType = "overview" | "tables" | "quotes" | "finance" | "timeline" | "scan
 export default function Home() {
   const { user, loading, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>("overview");
+  const [loginTheme, setLoginTheme] = useState<string>("1");
+
+  useEffect(() => {
+    if (!db) return;
+    const unsubBranding = onSnapshot(doc(db, "settings", "branding"), (snap) => {
+      if (snap.exists()) {
+        const theme = snap.data()?.loginTheme;
+        if (theme) setLoginTheme(theme);
+      }
+    });
+    return () => unsubBranding();
+  }, []);
   
   // Read share URL param for public host guest registration portal
   const [shareEventId, setShareEventId] = useState<string | null>(null);
@@ -133,7 +145,7 @@ export default function Home() {
   const renderActiveContent = () => {
     switch (activeTab) {
       case "overview":
-        return <OverviewTab user={user} setActiveTab={setActiveTab} allowedTabs={allowedTabs} />;
+        return <OverviewTab user={user} setActiveTab={setActiveTab} allowedTabs={allowedTabs} loginTheme={loginTheme} />;
       case "tables":
         // TableMap has its own sidebar, so we render it full screen or integrated.
         // Let's render it full screen with a back button returning to the main dashboard.
@@ -153,7 +165,7 @@ export default function Home() {
       case "events":
         return <EventEditor />;
       default:
-        return <OverviewTab user={user} setActiveTab={setActiveTab} allowedTabs={allowedTabs} />;
+        return <OverviewTab user={user} setActiveTab={setActiveTab} allowedTabs={allowedTabs} loginTheme={loginTheme} />;
     }
   };
 
@@ -163,9 +175,17 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-obsidian flex flex-col md:flex-row relative text-foreground">
+    <div className="min-h-screen bg-obsidian flex flex-col md:flex-row relative text-foreground overflow-hidden">
+      {/* Background Image for Theme 1 */}
+      {loginTheme === "1" && (
+        <>
+          <div className="absolute inset-0 bg-cover bg-center opacity-40 z-0" style={{ backgroundImage: "url('/login-bg.jpg')" }} />
+          <div className="absolute inset-0 bg-black/50 z-0" />
+        </>
+      )}
+
       {/* Sidebar Navigation */}
-      <aside className="w-full md:w-64 glass border-b md:border-b-0 md:border-r border-gold/10 p-6 flex flex-col justify-between shrink-0 md:h-screen md:sticky md:top-0 z-20">
+      <aside className={`w-full md:w-64 backdrop-blur-md bg-black/40 border-b md:border-b-0 md:border-r ${loginTheme === "1" ? "border-gold/20" : "border-white/5"} p-6 flex flex-col justify-between shrink-0 md:h-screen md:sticky md:top-0 z-20`}>
         <div className="space-y-8">
           {/* Logo Branding */}
           <div className="flex items-center gap-2">
@@ -241,9 +261,10 @@ interface OverviewProps {
   user: any;
   setActiveTab: (tab: TabType) => void;
   allowedTabs: any[];
+  loginTheme: string;
 }
 
-function OverviewTab({ user, setActiveTab, allowedTabs }: OverviewProps) {
+function OverviewTab({ user, setActiveTab, allowedTabs, loginTheme }: OverviewProps) {
   const isClient = user.role === "client";
   const clientEventId = typeof window !== "undefined" ? localStorage.getItem("svip_client_event_id") || "event-123" : "event-123";
 
@@ -608,6 +629,26 @@ function OverviewTab({ user, setActiveTab, allowedTabs }: OverviewProps) {
 
   return (
     <div className="space-y-6 w-full max-w-4xl mx-auto py-4">
+      {loginTheme === "1" && (
+        <style>{`
+          @keyframes borderShimmer {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+          }
+          .dashboard-card-border {
+            background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(212,175,55,0.35), rgba(255,255,255,0.06));
+            background-size: 200% 200%;
+            animation: borderShimmer 4s linear infinite;
+          }
+          .dashboard-card-border:hover {
+            background: linear-gradient(90deg, rgba(212,175,55,0.35), rgba(251,191,36,0.9), rgba(212,175,55,0.35));
+            background-size: 200% 200%;
+            animation: borderShimmer 2s linear infinite;
+          }
+        `}</style>
+      )}
+
       <div>
         <span className="text-[10px] text-gold tracking-widest font-semibold uppercase block mb-1">
           Bienvenido
@@ -630,6 +671,45 @@ function OverviewTab({ user, setActiveTab, allowedTabs }: OverviewProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {allowedTabs.filter(tab => tab.id !== "overview").map((tab) => {
           const Icon = tab.icon;
+
+          if (loginTheme === "1") {
+            return (
+              <div
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as TabType)}
+                className="group relative rounded-2xl overflow-hidden cursor-pointer p-[2.5px] transition-all duration-300 hover:scale-[1.01] active:scale-[0.99]"
+              >
+                {/* Glowing border container */}
+                <div className="absolute inset-0 rounded-2xl dashboard-card-border" />
+
+                {/* Inner Card content */}
+                <div className="relative w-full h-full rounded-[14px] overflow-hidden bg-black/80 backdrop-blur-md p-6 flex justify-between items-center">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center group-hover:bg-gold/20 transition-all duration-300 shadow-[0_0_10px_rgba(212,175,55,0.1)] group-hover:shadow-[0_0_15px_rgba(212,175,55,0.25)]">
+                      <Icon className="text-gold h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-white text-sm group-hover:text-gold transition-colors duration-300">
+                        {tab.label}
+                      </h3>
+                      <p className="text-gray-400 text-xs font-light mt-0.5 max-w-[280px]">
+                        {tab.id === "events" && "Configura detalles operativos de contratos, menús de cocina y aforos del salón."}
+                        {tab.id === "tables" && "Asigna invitados en el croquis 2D interactivo de 30m."}
+                        {tab.id === "quotes" && "Administra presupuestos dinámicos y contratos."}
+                        {tab.id === "finance" && "Registra abonos y evalúa rentabilidad neta del salón."}
+                        {tab.id === "timeline" && "Logística del día minuto a minuto para coordination."}
+                        {tab.id === "scanner" && "Escanea códigos QR de aforo en la entrada principal."}
+                        {tab.id === "settings" && "Gestiona al personal y los límites físicos del salón."}
+                        {tab.id === "calendar" && "Verifica disponibilidad del salón y agenda/confirma reservaciones de eventos."}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="text-gray-600 group-hover:text-gold group-hover:translate-x-1 transition-all duration-300 h-5 w-5 shrink-0" />
+                </div>
+              </div>
+            );
+          }
+
           return (
             <div
               key={tab.id}
