@@ -37,6 +37,15 @@ interface TimelineItem {
   requiredStaff?: string[];
 }
 
+const parseMenu = (menuStr: string) => {
+  if (!menuStr) return [];
+  let items = menuStr.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  if (items.length <= 1) {
+    items = menuStr.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  return items;
+};
+
 interface StaffNotification {
   id: string;
   name: string;
@@ -56,11 +65,25 @@ export default function LogisticsTimeline() {
   const [isLaunched, setIsLaunched] = useState(false);
 
   // Dynamic print and events list configuration states
-  const [events, setEvents] = useState<{ id: string; title: string; menu?: string }[]>([]);
+  const [events, setEvents] = useState<{ id: string; title: string; menu?: string; date?: string; guestLimit?: number; clientPhone?: string; clientName?: string }[]>([]);
   const [showPrintModal, setShowPrintModal] = useState(false);
-  const [printLogo, setPrintLogo] = useState("imperial");
+  const [printLogo, setPrintLogo] = useState("branding");
   const [printPaperSize, setPrintPaperSize] = useState("letter");
   const [printObservations, setPrintObservations] = useState("");
+  const [brandingLogo, setBrandingLogo] = useState<string>("");
+
+  useEffect(() => {
+    if (!db) return;
+    const unsub = onSnapshot(doc(db, "settings", "branding"), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.logoUrl) {
+          setBrandingLogo(data.logoUrl);
+        }
+      }
+    });
+    return () => unsub();
+  }, []);
 
   // Reactive states from Firestore
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
@@ -89,10 +112,27 @@ export default function LogisticsTimeline() {
     const unsubscribe = onSnapshot(collection(db, "events"), (snapshot) => {
       const list: any[] = [];
       snapshot.forEach((doc) => {
-        list.push({ id: doc.id, title: doc.data().title || doc.id, menu: doc.data().menu || "" });
+        const data = doc.data();
+        list.push({ 
+          id: doc.id, 
+          title: data.title || doc.id, 
+          menu: data.menu || "",
+          date: data.date || "Sin fecha",
+          guestLimit: data.guestLimit || 150,
+          clientPhone: data.clientInfo?.phone || "",
+          clientName: data.clientInfo?.name || "Sin nombre"
+        });
       });
       if (!list.some(e => e.id === "event-123")) {
-        list.unshift({ id: "event-123", title: "Gran Gala SocialesVIP", menu: "Espagueti al burro, lomo adobado, papas al gratin" });
+        list.unshift({ 
+          id: "event-123", 
+          title: "Gran Gala SocialesVIP", 
+          menu: "Entrada: Crema de Langosta al Coñac con Crujiente de Hojaldre\nEnsalada: Ensalada de Higos y Queso de Cabra con Aderezo de Frambuesa\nPlato Fuerte: Medallón de Filete Mignon en Salsa de Higo y Puré Trufado\nPostre: Coulant de Chocolate Belga Caliente con Helado de Vainilla\nBebidas: Vino Tinto Reserva, Whisky 12 Años, Coctelería de Autor e Infusiones", 
+          date: "2026-09-12",
+          guestLimit: 150,
+          clientPhone: "5555555",
+          clientName: "sofia n"
+        });
       }
       setEvents(list);
     });
@@ -778,6 +818,7 @@ export default function LogisticsTimeline() {
                   onChange={(e) => setPrintLogo(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
                 >
+                  <option value="branding">Logotipo de la Plataforma (Personalización)</option>
                   <option value="imperial">Grand Salón Imperial</option>
                   <option value="none">Sin Logotipo</option>
                 </select>
@@ -836,72 +877,145 @@ export default function LogisticsTimeline() {
       )}
 
       {/* Printable template container (Only shown on physical print) */}
-      <div className="hidden print:block text-black p-8 bg-white w-full h-full text-xs font-sans">
-        <div className="flex justify-between items-center border-b-2 border-gray-400 pb-4 mb-6">
-          <div>
-            {printLogo === "imperial" && (
-              <h2 className="text-xl font-bold uppercase tracking-widest text-gray-900">Grand Salón Imperial</h2>
-            )}
-            <h1 className="text-2xl font-extrabold mt-1 text-black uppercase">Cronograma de Servicio del Evento</h1>
-            <p className="text-xs text-gray-600 mt-1">
-              Evento: <strong className="text-black font-semibold">{selectedEvent}</strong> | Hora de Inicio: <strong className="text-black font-semibold">{eventTime} hrs</strong>
-            </p>
-          </div>
-          <div className="text-right">
-            <span className="text-[10px] text-gray-400 font-mono">SocialesVIP Logística</span>
-          </div>
-        </div>
+      <div className="hidden print:block text-black p-4 bg-white w-full h-full text-xs font-sans">
+        {(() => {
+          const evDetails = events.find(e => e.title === selectedEvent) || events[0] || {
+            id: "event-123",
+            title: "Gran Gala SocialesVIP",
+            date: "2026-09-12",
+            guestLimit: 150,
+            menu: ""
+          };
 
-        {/* Dynamic Predefined Menu Section */}
-        {events.find(e => e.title === selectedEvent)?.menu && (
-          <div className="border border-gray-300 rounded-xl p-4 bg-gray-50 mb-6">
-            <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-700 mb-1">Menú de Cocina Seleccionado</h3>
-            <p className="text-xs text-gray-800 font-serif leading-relaxed italic">
-              {events.find(e => e.title === selectedEvent)?.menu}
-            </p>
-          </div>
-        )}
+          return (
+            <div className="space-y-6">
+              {/* Header block (similar to Griselle mockup) */}
+              <div className="flex justify-between items-center pb-4 border-b border-gray-200">
+                <div className="flex items-center gap-3">
+                  {printLogo === "branding" && brandingLogo ? (
+                    <img 
+                      src={brandingLogo} 
+                      alt="Logo de la plataforma" 
+                      className="max-h-16 max-w-[180px] object-contain"
+                    />
+                  ) : printLogo === "imperial" ? (
+                    <h2 className="text-xl font-bold uppercase tracking-widest text-gray-900 font-serif">Grand Salón Imperial</h2>
+                  ) : null}
+                </div>
+                <div className="text-right">
+                  <h1 className="text-xl font-extrabold text-black uppercase tracking-wider">Cronograma de Evento</h1>
+                  <p className="text-[10px] text-gray-600 font-medium uppercase mt-0.5">{evDetails.title}</p>
+                </div>
+              </div>
 
-        {/* Timeline printed list table */}
-        <table className="w-full text-left border-collapse border border-gray-300">
-          <thead>
-            <tr className="bg-gray-100 border-b border-gray-300 text-gray-700 font-bold uppercase text-[10px]">
-              <th className="py-2.5 px-3 border border-gray-300 w-24">Hora</th>
-              <th className="py-2.5 px-3 border border-gray-300">Actividad Logística</th>
-              <th className="py-2.5 px-3 border border-gray-300">Descripción de Operación</th>
-              <th className="py-2.5 px-3 border border-gray-300 w-32">Responsable</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {timeline.map((item) => (
-              <tr key={item.id} className="text-gray-900">
-                <td className="py-2.5 px-3 border border-gray-300 font-mono font-bold">{item.time} hrs</td>
-                <td className="py-2.5 px-3 border border-gray-300 font-bold">
-                  <div>{item.title}</div>
-                  {item.requiredStaff && item.requiredStaff.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {item.requiredStaff.map((cat) => (
-                        <span key={cat} className="text-[8px] font-extrabold uppercase tracking-wider bg-gray-200 text-gray-800 px-1.5 py-0.5 rounded border border-gray-300">
-                          {cat}
-                        </span>
-                      ))}
+              {/* Grid 2 Columns for Event Details & Banquet Menu */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Left Card: Datos del Evento */}
+                <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 space-y-2">
+                  <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-700 border-b border-gray-200/50 pb-1 mb-1">
+                    Datos del Evento
+                  </h3>
+                  <div className="space-y-1 text-xs">
+                    <p className="text-gray-600">
+                      <strong className="text-black font-semibold">Fecha:</strong> {evDetails.date || "Sin fecha"}
+                    </p>
+                    <p className="text-gray-600">
+                      <strong className="text-black font-semibold">Aforo:</strong> {evDetails.guestLimit || 150} máx
+                    </p>
+                    <p className="text-gray-600">
+                      <strong className="text-black font-semibold">Código de Acceso:</strong> <span className="font-mono text-gray-800">{evDetails.id}</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Right Card: Menú del Banquete */}
+                <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 space-y-2">
+                  <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-700 border-b border-gray-200/50 pb-1 mb-1">
+                    Menú del Banquete
+                  </h3>
+                  {evDetails.menu ? (
+                    <div className="space-y-1 text-xs text-gray-800">
+                      {parseMenu(evDetails.menu).map((item, idx) => {
+                        const parts = item.split(':');
+                        if (parts.length > 1 && parts[0].length < 25) {
+                          return (
+                            <p key={idx} className="leading-relaxed">
+                              <strong className="text-black font-semibold uppercase text-[9px]">{parts[0].trim()}:</strong>
+                              <span className="font-light pl-1">{parts.slice(1).join(':').trim()}</span>
+                            </p>
+                          );
+                        }
+                        return (
+                          <p key={idx} className="leading-relaxed font-light text-gray-600">
+                            • {item}
+                          </p>
+                        );
+                      })}
                     </div>
+                  ) : (
+                    <p className="text-xs text-gray-400 italic">No se ha registrado menú de cocina aún.</p>
                   )}
-                </td>
-                <td className="py-2.5 px-3 border border-gray-300 text-gray-600 leading-normal">{item.description}</td>
-                <td className="py-2.5 px-3 border border-gray-300">{item.responsible}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              </div>
 
-        {/* Print general observations at bottom */}
-        {printObservations && (
-          <div className="border-t border-gray-300 pt-4 mt-8">
-            <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-700 mb-1.5">Observaciones Generales para el Staff</h4>
-            <p className="text-xs text-gray-600 leading-relaxed font-light">{printObservations}</p>
-          </div>
-        )}
+              {/* Horizontal line divider */}
+              <div className="border-b border-gray-300 my-4" />
+
+              {/* Horarios y Actividades section */}
+              <div className="space-y-3">
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-700">
+                  Horarios y Actividades
+                </h3>
+                
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-gray-300 text-gray-700 font-bold uppercase text-[9px] tracking-wider font-mono">
+                      <th className="py-2 px-2 pb-1.5 w-[50%]">Actividad / Momento</th>
+                      <th className="py-2 px-2 pb-1.5 w-[35%]">Descripción de Operación</th>
+                      <th className="py-2 px-2 pb-1.5 text-right w-[15%]">Horario</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-150">
+                    {timeline.map((item) => (
+                      <tr key={item.id} className="text-gray-900">
+                        <td className="py-2.5 px-2">
+                          <div className="font-bold text-gray-950 text-xs">{item.title}</div>
+                          {item.requiredStaff && item.requiredStaff.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {item.requiredStaff.map((cat) => (
+                                <span key={cat} className="text-[8px] font-extrabold uppercase tracking-wider bg-gray-100 text-gray-600 px-1 py-0.5 rounded border border-gray-200">
+                                  {cat}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-2 text-gray-500 font-light text-[11px] leading-relaxed">
+                          {item.description}
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-bold text-blue-700 text-xs whitespace-nowrap">
+                          {item.time} hrs
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Observaciones Especiales (Dashed card) */}
+              {printObservations && (
+                <div className="border border-dashed border-gray-300 rounded-xl p-4 bg-gray-50/30">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                    Observaciones Especiales
+                  </h4>
+                  <p className="text-xs text-gray-600 leading-relaxed font-light">
+                    {printObservations}
+                  </p>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Global CSS style block for printing adjustments */}
