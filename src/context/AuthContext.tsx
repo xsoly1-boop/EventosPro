@@ -52,6 +52,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       if (firebaseUser) {
         try {
+          const email = firebaseUser.email || "";
+          // Auto-assign admin role in Firestore on authentication check for master admin emails
+          if ((email.toLowerCase() === "admin@socialesvip.com" || email.toLowerCase() === "admin@eventospro.com") && db) {
+            const userDocRef = doc(db, "users", firebaseUser.uid);
+            await setDoc(userDocRef, {
+              role: "admin",
+              displayName: "Admin Master",
+              email: firebaseUser.email,
+            }, { merge: true });
+          }
+
           // Fetch user profile from Firestore to get role
           const docRef = doc(db, "users", firebaseUser.uid);
           const docSnap = await getDoc(docRef);
@@ -99,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const firebaseUser = userCredential.user;
 
       // Auto-assign admin role in Firestore on first login for the master admin email
-      if (email.toLowerCase() === "admin@socialesvip.com" && db) {
+      if ((email.toLowerCase() === "admin@socialesvip.com" || email.toLowerCase() === "admin@eventospro.com") && db) {
         const userDocRef = doc(db, "users", firebaseUser.uid);
         await setDoc(userDocRef, {
           role: "admin",
