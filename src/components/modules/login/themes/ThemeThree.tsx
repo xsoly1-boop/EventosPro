@@ -201,14 +201,10 @@ export default function ThemeThree({ activeForm, setActiveForm, authRole, hostCo
               onBlur={(e) => (e.target.style.borderColor = "rgba(212,175,55,0.15)")} />
           </div>
         ))}
-        <div className="pt-1 space-y-2">
+        <div className="pt-1">
           <button type="submit" disabled={loading} className="w-full py-3.5 rounded-xl bg-gold text-obsidian text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             style={{ boxShadow: "0 0 20px rgba(212,175,55,0.4)" }}>
             {loading ? <><div className="w-3.5 h-3.5 border-2 border-obsidian border-t-transparent rounded-full animate-spin" /><span>Iniciando...</span></> : <><span>Iniciar Sesión</span><ArrowRight className="h-3.5 w-3.5" /></>}
-          </button>
-          <button type="button" onClick={() => loginDemo(authRole)} className="w-full py-3 rounded-xl text-gray-400 text-xs font-semibold uppercase transition-all hover:text-gold"
-            style={{ border: "1px solid rgba(212,175,55,0.15)" }}>
-            Entrar Demo
           </button>
         </div>
       </form>

@@ -55,10 +55,6 @@ export default function LoginPortal() {
     const code = hostCode.trim();
     if (!code) return;
     setError(""); setLoading(true);
-    if (code === "SVIP-2026") {
-      localStorage.setItem("svip_client_event_id", "event-123");
-      loginDemo("client"); setLoading(false); return;
-    }
     if (db) {
       try {
         const snap = await getDoc(doc(db, "events", code));

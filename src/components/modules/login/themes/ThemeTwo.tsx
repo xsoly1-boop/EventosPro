@@ -169,11 +169,10 @@ export default function ThemeTwo({ activeForm, setActiveForm, authRole, hostCode
         {error && <div className="flex items-start gap-2 text-red-400 text-xs bg-red-950/30 border border-red-500/15 rounded-xl px-4 py-3"><AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" /><span>{error}</span></div>}
         <div className="relative"><Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" /><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="correo@ejemplo.com" autoFocus className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-gold/40 text-xs transition-all" /></div>
         <div className="relative"><Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" /><input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-gold/40 text-xs transition-all" /></div>
-        <div className="pt-2 space-y-2.5">
+        <div className="pt-2">
           <button type="submit" disabled={loading} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-gold to-amber-400 text-obsidian text-xs font-bold uppercase tracking-wider transition-all shadow-[0_4px_20px_rgba(212,175,55,0.25)] hover:shadow-[0_6px_30px_rgba(212,175,55,0.45)] flex items-center justify-center gap-2 disabled:opacity-50">
             {loading ? <><div className="w-3.5 h-3.5 border-2 border-obsidian border-t-transparent rounded-full animate-spin" /><span>Iniciando...</span></> : <><span>Iniciar Sesión</span><ArrowRight className="h-3.5 w-3.5" /></>}
           </button>
-          <button type="button" onClick={() => loginDemo(authRole)} className="w-full py-3 rounded-xl border border-white/8 text-gray-400 text-xs font-semibold uppercase hover:bg-white/[0.04] hover:border-gold/20 hover:text-gold transition-all">Entrar Demo</button>
         </div>
       </form>
     </FormShell>
